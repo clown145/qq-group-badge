@@ -312,9 +312,7 @@ async function handleRenderImage(
           existing.result?.contentType ?? contentTypeForFormat(format)
         )
       );
-      response.headers.set("x-render-status", "ready");
-      response.headers.set("x-render-alias", aliasKey);
-      return response;
+      return finalizeRenderImageResponse(response, "ready", aliasKey);
     }
   }
 
@@ -324,8 +322,7 @@ async function handleRenderImage(
   if (existing?.status === "failed" && !retryFailed) {
     const stale = await getLatestRenderedAssetResponse(env, aliasKey);
     if (stale) {
-      stale.headers.set("x-render-status", "stale");
-      return stale;
+      return finalizeRenderImageResponse(stale, "stale", aliasKey);
     }
 
     return renderImageStatusPlaceholder({
@@ -365,8 +362,7 @@ async function handleRenderImage(
 
   const stale = await getLatestRenderedAssetResponse(env, aliasKey);
   if (stale) {
-    stale.headers.set("x-render-status", "stale");
-    return stale;
+    return finalizeRenderImageResponse(stale, "stale", aliasKey);
   }
 
   return renderImageStatusPlaceholder({
@@ -376,6 +372,17 @@ async function handleRenderImage(
     renderKey: payload.renderKey,
     renderStatus: state?.status ?? "missing"
   });
+}
+
+function finalizeRenderImageResponse(
+  response: Response,
+  renderStatus: "ready" | "stale",
+  aliasKey: string
+): Response {
+  response.headers.set("cache-control", "public, max-age=300, s-maxage=300, stale-while-revalidate=3600");
+  response.headers.set("x-render-status", renderStatus);
+  response.headers.set("x-render-alias", aliasKey);
+  return response;
 }
 
 async function forwardRenderRequestAndRecordFailure(
