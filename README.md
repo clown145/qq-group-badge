@@ -4,9 +4,7 @@
 
 在线生成器：
 
-```text
-https://qq-group-badge.ciallo.de5.net/
-```
+[https://qq-group-badge.ciallo.de5.net/](https://qq-group-badge.ciallo.de5.net/)
 
 ## 功能特性
 
@@ -22,9 +20,7 @@ https://qq-group-badge.ciallo.de5.net/
 
 推荐直接打开生成器：
 
-```text
-https://qq-group-badge.ciallo.de5.net/
-```
+[https://qq-group-badge.ciallo.de5.net/](https://qq-group-badge.ciallo.de5.net/)
 
 使用步骤：
 
