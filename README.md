@@ -2,6 +2,10 @@
 
 为 QQ 群生成可嵌入 README 的徽章图片。服务会抓取公开 QQ 群邀请页，提取群名称、群号、人数和头像，并返回 SVG / WebP / PNG 图片。
 
+AstrBot QQ 群示例，当前已满人：
+
+[![AstrBot QQ 群徽章（已满人）](https://qq-group-badge.ciallo.de5.net/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FpAyGVIADFS&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-animated-badge-template.svg&v=1775860240907)](https://qm.qq.com/q/pAyGVIADFS)
+
 在线生成器：
 
 [https://qq-group-badge.ciallo.de5.net/](https://qq-group-badge.ciallo.de5.net/)
