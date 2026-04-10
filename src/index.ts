@@ -620,17 +620,22 @@ function renderHome(url: URL): Response {
     "https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg";
   const animatedTemplate =
     "https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-animated-badge-template.svg";
+  const dynamicTemplate =
+    "https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-dynamic-card-template.svg";
   const requestedTemplate = coalesceString(url.searchParams.get("template"), "") ?? "";
   const initialTemplatePreset =
-    requestedTemplate === animatedTemplate
-      ? "animated"
-      : requestedTemplate.length > 0 && requestedTemplate !== staticTemplate
-        ? "custom"
-        : "static";
+    requestedTemplate === dynamicTemplate
+      ? "dynamic"
+      : requestedTemplate === animatedTemplate
+        ? "animated"
+        : requestedTemplate.length > 0 && requestedTemplate !== staticTemplate
+          ? "custom"
+          : "static";
   const initialCustomTemplate = initialTemplatePreset === "custom" ? requestedTemplate : "";
   const originJson = jsonForInlineScript(origin);
   const staticTemplateJson = jsonForInlineScript(staticTemplate);
   const animatedTemplateJson = jsonForInlineScript(animatedTemplate);
+  const dynamicTemplateJson = jsonForInlineScript(dynamicTemplate);
   const initialTemplatePresetJson = jsonForInlineScript(initialTemplatePreset);
   const html = `<!doctype html>
 <html lang="zh-CN">
@@ -955,6 +960,7 @@ function renderHome(url: URL): Response {
           <select id="templatePreset">
             <option value="static">静态模板</option>
             <option value="animated">动画模板</option>
+            <option value="dynamic">大动态卡片模板</option>
             <option value="custom">自定义 URL</option>
           </select>
         </label>
@@ -1028,7 +1034,13 @@ function renderHome(url: URL): Response {
     const origin = ${originJson};
     const templatePresets = {
       static: ${staticTemplateJson},
-      animated: ${animatedTemplateJson}
+      animated: ${animatedTemplateJson},
+      dynamic: ${dynamicTemplateJson}
+    };
+    const templatePresetNames = {
+      static: "静态模板",
+      animated: "动画模板",
+      dynamic: "大动态卡片模板"
     };
     const initialTemplatePreset = ${initialTemplatePresetJson};
     const fields = {
@@ -1061,7 +1073,7 @@ function renderHome(url: URL): Response {
       fields.template.disabled = !isCustom;
       fields.template.placeholder = isCustom
         ? "https://raw.githubusercontent.com/.../template.svg"
-        : "当前使用：" + (fields.templatePreset.value === "animated" ? "动画模板" : "静态模板");
+        : "当前使用：" + (templatePresetNames[fields.templatePreset.value] || "静态模板");
     }
 
     function buildBadgeUrl(forPreview = false) {

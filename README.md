@@ -11,7 +11,7 @@
 - 支持从 `qm.qq.com` / `qun.qq.com` 邀请页获取群资料。
 - 支持直接返回 README 可用的 SVG 徽章。
 - 支持自定义 SVG 模板和占位符。
-- 内置静态 SVG 模板和动画 SVG 模板。
+- 内置静态 SVG 模板、动画 SVG 模板和大动态卡片模板。
 - 提供网页生成器，可直接生成 Markdown、HTML 和图片直链。
 - 支持通过外部渲染器把 HTML 模板渲染成 PNG / WebP。
 - 支持使用 Cloudflare KV 和 R2 缓存渲染产物。
@@ -25,7 +25,7 @@
 使用步骤：
 
 1. 输入 QQ 群邀请链接。
-2. 选择静态模板、动画模板或自定义模板。
+2. 选择静态模板、动画模板、大动态卡片模板或自定义模板。
 3. 点击生成代码。
 4. 复制 Markdown 或 HTML 到 README。
 5. 点击测试预览，确认徽章能正常加载。
@@ -58,6 +58,7 @@
 | --- | --- |
 | 静态 SVG | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg` |
 | 动画 SVG | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-animated-badge-template.svg` |
+| 大动态卡片 SVG | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-dynamic-card-template.svg` |
 
 模板编写说明见 [SVG 模板徽章](docs/svg-template-badges.md)。
 
@@ -138,6 +139,7 @@ README 场景建议优先使用 `/badge.svg`。只有需要栅格图、复杂 HT
 | `{{created_at_text}}` | 建群日期，页面提供时才有值。 |
 | `{{group_level_badge}}` | 群等级文本，例如 `LV4`。 |
 | `{{group_tags_text}}` | 群标签文本。 |
+| `{{group_tag_1}}` / `{{group_tag_2}}` / `{{group_tag_3}}` | 前三个群标签。 |
 | `{{group_file_count_text}}` | 群文件数量。 |
 | `{{group_album_count_text}}` | 群相册数量。 |
 | `{{group_essence_count_text}}` | 群精华数量。 |

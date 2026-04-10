@@ -103,6 +103,9 @@ JSON 输出：
 | `group_tags_csv` | string | 用英文逗号拼接的群标签。 |
 | `group_tags_text` | string | 用 ` · ` 拼接的群标签，适合直接显示。 |
 | `group_tag_count` | number | 群标签数量。 |
+| `group_tag_1` | string | 第 1 个群标签；缺失时为空字符串。 |
+| `group_tag_2` | string | 第 2 个群标签；缺失时为空字符串。 |
+| `group_tag_3` | string | 第 3 个群标签；缺失时为空字符串。 |
 
 ### 群资产
 

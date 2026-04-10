@@ -1,0 +1,252 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
+  <title id="title">{{group_name}}</title>
+  <desc id="desc">群号 {{group_code}} · {{member_count_text}} members · 建群 {{created_at_text}}</desc>
+  <style>
+    .aurora {
+      animation: aurora 8s ease-in-out infinite alternate;
+      transform-origin: center;
+    }
+
+    .grain {
+      animation: grain 3.5s steps(4) infinite;
+    }
+
+    .orbit {
+      animation: orbit 9s linear infinite;
+      transform-origin: 150px 168px;
+    }
+
+    .orbit-slow {
+      animation: orbit 14s linear infinite reverse;
+      transform-origin: 150px 168px;
+    }
+
+    .pulse {
+      animation: pulse 2.6s ease-in-out infinite;
+      transform-origin: 150px 168px;
+    }
+
+    .float {
+      animation: float 4.8s ease-in-out infinite;
+    }
+
+    .float-delay {
+      animation: float 5.6s ease-in-out infinite;
+      animation-delay: -1.6s;
+    }
+
+    .scan {
+      animation: scan 3.8s ease-in-out infinite;
+    }
+
+    .dash {
+      animation: dash 5.2s linear infinite;
+    }
+
+    .tag-a {
+      animation: tag 3.8s ease-in-out infinite;
+      transform-origin: 542px 278px;
+    }
+
+    .tag-b {
+      animation: tag 3.8s ease-in-out infinite;
+      animation-delay: -0.7s;
+      transform-origin: 648px 278px;
+    }
+
+    .tag-c {
+      animation: tag 3.8s ease-in-out infinite;
+      animation-delay: -1.4s;
+      transform-origin: 754px 278px;
+    }
+
+    @keyframes aurora {
+      0% {
+        transform: translate(-18px, -8px) scale(1);
+        opacity: 0.78;
+      }
+      100% {
+        transform: translate(24px, 18px) scale(1.08);
+        opacity: 0.96;
+      }
+    }
+
+    @keyframes grain {
+      0%, 100% {
+        opacity: 0.18;
+      }
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    @keyframes orbit {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.3;
+      }
+      50% {
+        transform: scale(1.22);
+        opacity: 0.62;
+      }
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-8px);
+      }
+    }
+
+    @keyframes scan {
+      0% {
+        transform: translateX(-520px) skewX(-18deg);
+        opacity: 0;
+      }
+      18% {
+        opacity: 0.62;
+      }
+      54% {
+        opacity: 0.12;
+      }
+      100% {
+        transform: translateX(980px) skewX(-18deg);
+        opacity: 0;
+      }
+    }
+
+    @keyframes dash {
+      to {
+        stroke-dashoffset: -160;
+      }
+    }
+
+    @keyframes tag {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+      }
+      50% {
+        transform: translateY(-3px) scale(1.025);
+      }
+    }
+  </style>
+  <defs>
+    <linearGradient id="base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#091a23" />
+      <stop offset="42%" stop-color="#123d42" />
+      <stop offset="100%" stop-color="#d18b2d" />
+    </linearGradient>
+    <radialGradient id="gold" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#ffd27a" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#ffd27a" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="green" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#52ffd3" stop-opacity="0.68" />
+      <stop offset="100%" stop-color="#52ffd3" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="46%" stop-color="#ffffff" stop-opacity="0.62" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1" />
+    </pattern>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#02070a" flood-opacity="0.36" />
+    </filter>
+    <filter id="glow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <clipPath id="card-clip">
+      <rect x="18" y="18" width="884" height="324" rx="34" />
+    </clipPath>
+    <clipPath id="avatar-clip">
+      <circle cx="150" cy="168" r="76" />
+    </clipPath>
+    <clipPath id="name-clip">
+      <rect x="286" y="84" width="542" height="58" />
+    </clipPath>
+    <clipPath id="desc-clip">
+      <rect x="286" y="194" width="562" height="32" />
+    </clipPath>
+    <clipPath id="tag-1-clip">
+      <rect x="310" y="264" width="172" height="24" />
+    </clipPath>
+    <clipPath id="tag-2-clip">
+      <rect x="552" y="264" width="52" height="24" />
+    </clipPath>
+    <clipPath id="tag-3-clip">
+      <rect x="666" y="264" width="52" height="24" />
+    </clipPath>
+  </defs>
+
+  <rect width="920" height="360" rx="40" fill="#07151b" />
+
+  <g clip-path="url(#card-clip)">
+    <rect x="18" y="18" width="884" height="324" rx="34" fill="url(#base)" />
+    <image href="{{group_background_data_url}}" x="18" y="18" width="884" height="324" preserveAspectRatio="xMidYMid slice" opacity="0.2" />
+    <rect x="18" y="18" width="884" height="324" rx="34" fill="#061117" opacity="0.3" />
+    <circle class="aurora" cx="130" cy="62" r="180" fill="url(#green)" />
+    <circle class="aurora" cx="806" cy="302" r="220" fill="url(#gold)" />
+    <rect class="grain" width="920" height="360" fill="url(#grid)" />
+    <rect class="scan" x="-120" y="-32" width="96" height="430" fill="url(#shine)" />
+  </g>
+
+  <rect x="18" y="18" width="884" height="324" rx="34" fill="none" stroke="#ffffff" stroke-opacity="0.2" />
+  <rect x="42" y="42" width="836" height="276" rx="28" fill="#ffffff" fill-opacity="0.08" stroke="#ffffff" stroke-opacity="0.16" filter="url(#soft-shadow)" />
+
+  <g class="pulse" filter="url(#glow)">
+    <circle cx="150" cy="168" r="88" fill="#f8d37a" opacity="0.32" />
+  </g>
+  <g class="orbit">
+    <circle cx="150" cy="72" r="5" fill="#ffe2a3" />
+    <circle cx="244" cy="168" r="3" fill="#70ffd9" />
+  </g>
+  <g class="orbit-slow">
+    <circle cx="150" cy="264" r="4" fill="#ffffff" opacity="0.74" />
+    <circle cx="60" cy="168" r="3" fill="#ffb65c" />
+  </g>
+  <circle cx="150" cy="168" r="82" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.42" stroke-width="2" />
+  <image href="{{avatar_data_url}}" x="74" y="92" width="152" height="152" clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice" />
+  <circle cx="150" cy="168" r="76" fill="none" stroke="#fff3cd" stroke-opacity="0.9" stroke-width="2.5" />
+  <circle class="dash" cx="150" cy="168" r="96" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-dasharray="18 18" />
+
+  <g class="float">
+    <text x="286" y="72" font-family="Verdana, DejaVu Sans, sans-serif" font-size="13" font-weight="800" letter-spacing="0.18em" fill="#ffe6a8">LIVE QQ GROUP</text>
+    <text x="286" y="126" clip-path="url(#name-clip)" font-family="Verdana, DejaVu Sans, sans-serif" font-size="40" font-weight="800" fill="#ffffff">{{group_name}}</text>
+    <rect x="286" y="150" width="336" height="34" rx="17" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.16" />
+    <text x="304" y="172" font-family="Verdana, DejaVu Sans, sans-serif" font-size="14" font-weight="700" fill="#fff5d6">群号 {{group_code}} · 建群 {{created_at_text}}</text>
+  </g>
+
+  <g class="float-delay">
+    <rect x="676" y="64" width="158" height="108" rx="24" fill="#07151b" fill-opacity="0.34" stroke="#ffffff" stroke-opacity="0.18" />
+    <text x="704" y="98" font-family="Verdana, DejaVu Sans, sans-serif" font-size="12" font-weight="800" letter-spacing="0.12em" fill="#a8ffe8">MEMBERS</text>
+    <text x="704" y="144" font-family="Verdana, DejaVu Sans, sans-serif" font-size="42" font-weight="900" fill="#ffffff">{{member_count_text}}</text>
+  </g>
+
+  <text x="286" y="218" clip-path="url(#desc-clip)" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18" font-weight="650" fill="#d9fff3">{{group_description}}</text>
+
+  <g>
+    <rect x="286" y="252" width="222" height="52" rx="20" fill="#07151b" fill-opacity="0.26" stroke="#ffffff" stroke-opacity="0.16" />
+    <text x="310" y="284" clip-path="url(#tag-1-clip)" font-family="Verdana, DejaVu Sans, sans-serif" font-size="16" font-weight="800" fill="#fff3c8"># {{group_tag_1}}</text>
+    <rect class="tag-a" x="528" y="252" width="96" height="52" rx="20" fill="#f5b94f" fill-opacity="0.24" stroke="#ffe3a4" stroke-opacity="0.32" />
+    <text x="552" y="284" clip-path="url(#tag-2-clip)" font-family="Verdana, DejaVu Sans, sans-serif" font-size="15" font-weight="800" fill="#fff7df">{{group_tag_2}}</text>
+    <rect class="tag-b" x="642" y="252" width="96" height="52" rx="20" fill="#49e0bd" fill-opacity="0.18" stroke="#a8ffe8" stroke-opacity="0.32" />
+    <text x="666" y="284" clip-path="url(#tag-3-clip)" font-family="Verdana, DejaVu Sans, sans-serif" font-size="15" font-weight="800" fill="#e3fff8">{{group_tag_3}}</text>
+    <rect class="tag-c" x="756" y="252" width="78" height="52" rx="20" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22" />
+    <text x="778" y="284" font-family="Verdana, DejaVu Sans, sans-serif" font-size="15" font-weight="800" fill="#ffffff">{{group_level_badge}}</text>
+  </g>
+</svg>
