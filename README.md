@@ -44,6 +44,8 @@ SVG 模板示例：
 
 SVG 模板里可以用 `{{avatar_data_url}}` 内联群头像，适合 GitHub README。
 
+详细用法见 [`docs/svg-template-badges.md`](docs/svg-template-badges.md)。
+
 ### `GET /badge.webp` / `GET /badge.png`
 
 使用 HTML 模板渲染 README 可直接引用的图片。
