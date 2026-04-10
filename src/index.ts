@@ -611,13 +611,23 @@ async function handlePreviewHtml(url: URL): Promise<Response> {
 
 function renderHome(url: URL): Response {
   const origin = `${url.protocol}//${url.host}`;
-  const defaultInvite =
-    coalesceString(url.searchParams.get("invite"), "https://qm.qq.com/q/oTzIrdDBIc") ?? "";
-  const defaultTemplate =
+  const initialInvite = coalesceString(url.searchParams.get("invite"), "") ?? "";
+  const staticTemplate =
     "https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg";
-  const initialTemplate = coalesceString(url.searchParams.get("template"), "") ?? "";
+  const animatedTemplate =
+    "https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-animated-badge-template.svg";
+  const requestedTemplate = coalesceString(url.searchParams.get("template"), "") ?? "";
+  const initialTemplatePreset =
+    requestedTemplate === animatedTemplate
+      ? "animated"
+      : requestedTemplate.length > 0 && requestedTemplate !== staticTemplate
+        ? "custom"
+        : "static";
+  const initialCustomTemplate = initialTemplatePreset === "custom" ? requestedTemplate : "";
   const originJson = jsonForInlineScript(origin);
-  const defaultTemplateJson = jsonForInlineScript(defaultTemplate);
+  const staticTemplateJson = jsonForInlineScript(staticTemplate);
+  const animatedTemplateJson = jsonForInlineScript(animatedTemplate);
+  const initialTemplatePresetJson = jsonForInlineScript(initialTemplatePreset);
   const html = `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -729,6 +739,7 @@ function renderHome(url: URL): Response {
       letter-spacing: 0.02em;
     }
 
+    select,
     input[type="url"],
     input[type="text"] {
       width: 100%;
@@ -741,9 +752,27 @@ function renderHome(url: URL): Response {
       outline: none;
     }
 
-    input:focus {
+    select {
+      appearance: none;
+      background:
+        linear-gradient(45deg, transparent 50%, var(--green) 50%),
+        linear-gradient(135deg, var(--green) 50%, transparent 50%),
+        rgba(255, 255, 255, 0.72);
+      background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%, 0 0;
+      background-size: 6px 6px, 6px 6px, 100% 100%;
+      background-repeat: no-repeat;
+    }
+
+    input:focus,
+    select:focus {
       border-color: rgba(29, 107, 86, 0.55);
       box-shadow: 0 0 0 4px rgba(29, 107, 86, 0.12);
+    }
+
+    input:disabled {
+      color: rgba(23, 35, 31, 0.58);
+      background: rgba(255, 255, 255, 0.42);
+      cursor: not-allowed;
     }
 
     .checkline {
@@ -908,18 +937,27 @@ function renderHome(url: URL): Response {
       <div class="panel intro">
         <p class="eyebrow">QQ Group Badge</p>
         <h1>README 徽章生成器</h1>
-        <p class="lead">输入 QQ 群邀请链接，选择一个公开 SVG 模板，一键生成 Markdown、HTML 和图片直链。模板 URL 留空时会使用仓库里的默认模板。</p>
+        <p class="lead">输入 QQ 群邀请链接，选择静态或动画 SVG 模板，一键生成 Markdown、HTML 和图片直链。也可以切到自定义模板 URL。</p>
       </div>
 
       <form class="panel form" id="generator">
         <label>
           QQ 群邀请链接
-          <input id="invite" type="url" autocomplete="off" required value="${xmlEscape(defaultInvite ?? "")}" placeholder="https://qm.qq.com/q/xxxx">
+          <input id="invite" type="url" autocomplete="off" required value="${xmlEscape(initialInvite)}" placeholder="https://qm.qq.com/q/xxxx">
         </label>
 
         <label>
-          SVG 模板 URL（可留空）
-          <input id="template" type="url" autocomplete="off" value="${xmlEscape(initialTemplate ?? "")}" placeholder="留空使用默认模板">
+          预制 SVG 模板
+          <select id="templatePreset">
+            <option value="static">静态模板</option>
+            <option value="animated">动画模板</option>
+            <option value="custom">自定义 URL</option>
+          </select>
+        </label>
+
+        <label>
+          自定义 SVG 模板 URL
+          <input id="template" type="url" autocomplete="off" value="${xmlEscape(initialCustomTemplate)}" placeholder="选择自定义 URL 时填写">
         </label>
 
         <label>
@@ -984,9 +1022,14 @@ function renderHome(url: URL): Response {
 
   <script>
     const origin = ${originJson};
-    const defaultTemplate = ${defaultTemplateJson};
+    const templatePresets = {
+      static: ${staticTemplateJson},
+      animated: ${animatedTemplateJson}
+    };
+    const initialTemplatePreset = ${initialTemplatePresetJson};
     const fields = {
       invite: document.querySelector("#invite"),
+      templatePreset: document.querySelector("#templatePreset"),
       template: document.querySelector("#template"),
       alt: document.querySelector("#alt"),
       avatar: document.querySelector("#avatar"),
@@ -998,12 +1041,35 @@ function renderHome(url: URL): Response {
       status: document.querySelector("#status")
     };
 
+    fields.templatePreset.value = initialTemplatePreset;
+    updateTemplateInputState();
+
+    function getSelectedTemplateUrl() {
+      if (fields.templatePreset.value === "custom") {
+        return fields.template.value.trim();
+      }
+
+      return templatePresets[fields.templatePreset.value] || templatePresets.static;
+    }
+
+    function updateTemplateInputState() {
+      const isCustom = fields.templatePreset.value === "custom";
+      fields.template.disabled = !isCustom;
+      fields.template.placeholder = isCustom
+        ? "https://raw.githubusercontent.com/.../template.svg"
+        : "当前使用：" + (fields.templatePreset.value === "animated" ? "动画模板" : "静态模板");
+    }
+
     function buildBadgeUrl(forPreview = false) {
       const invite = fields.invite.value.trim();
-      const template = fields.template.value.trim() || defaultTemplate;
+      const template = getSelectedTemplateUrl();
 
       if (!invite) {
         throw new Error("请先输入 QQ 群邀请链接");
+      }
+
+      if (!template) {
+        throw new Error("请先填写自定义 SVG 模板 URL，或选择预制模板");
       }
 
       const badgeUrl = new URL("/badge.svg", origin);
@@ -1096,6 +1162,15 @@ function renderHome(url: URL): Response {
       });
     }
 
+    fields.templatePreset.addEventListener("change", () => {
+      updateTemplateInputState();
+      try {
+        buildOutputs();
+      } catch {
+        // Keep the current output until the user finishes typing a valid invite URL.
+      }
+    });
+
     for (const input of [fields.invite, fields.template, fields.alt, fields.avatar, fields.cacheBust]) {
       input.addEventListener("input", () => {
         try {
@@ -1113,7 +1188,11 @@ function renderHome(url: URL): Response {
       });
     }
 
-    buildOutputs();
+    try {
+      buildOutputs();
+    } catch {
+      fields.status.textContent = "先输入 QQ 群邀请链接，然后生成代码或测试预览。";
+    }
   </script>
 </body>
 </html>`;
