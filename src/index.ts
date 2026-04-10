@@ -30,6 +30,7 @@ import { injectPreviewBaseTag } from "./template.js";
 import type {
   BadgeOptions,
   Env,
+  GroupInfo,
   RenderCallbackFailure,
   RendererPayload,
   RenderOptions,
@@ -325,34 +326,16 @@ async function handleRenderImage(
       return finalizeRenderImageResponse(stale, "stale", aliasKey);
     }
 
-    return renderImageStatusPlaceholder({
-      title: "Render failed",
-      message: existing.error?.message ?? "The renderer reported a failure.",
-      status: 200,
-      renderKey: payload.renderKey,
-      renderStatus: "failed"
-    });
+    return renderSvgFallbackBadge(group, "failed", aliasKey, payload.renderKey);
   }
 
   if (existing?.status !== "pending") {
     if (!isRenderStorageConfigured(env)) {
-      return renderImageStatusPlaceholder({
-        title: "Render storage is not configured",
-        message: "RENDER_STATE and RENDER_BUCKET are required.",
-        status: 200,
-        renderKey: payload.renderKey,
-        renderStatus: "not_configured"
-      });
+      return renderSvgFallbackBadge(group, "not_configured", aliasKey, payload.renderKey);
     }
 
     if (!isRendererConfigured(env)) {
-      return renderImageStatusPlaceholder({
-        title: "Renderer is not configured",
-        message: "RENDERER_BASE_URL is required.",
-        status: 200,
-        renderKey: payload.renderKey,
-        renderStatus: "not_configured"
-      });
+      return renderSvgFallbackBadge(group, "not_configured", aliasKey, payload.renderKey);
     }
 
     const pending = await putRenderPending(env, payload, existing);
@@ -365,13 +348,7 @@ async function handleRenderImage(
     return finalizeRenderImageResponse(stale, "stale", aliasKey);
   }
 
-  return renderImageStatusPlaceholder({
-    title: "Rendering badge",
-    message: "Refresh this image after the renderer finishes.",
-    status: 200,
-    renderKey: payload.renderKey,
-    renderStatus: state?.status ?? "missing"
-  });
+  return renderSvgFallbackBadge(group, state?.status ?? "missing", aliasKey, payload.renderKey);
 }
 
 function finalizeRenderImageResponse(
@@ -383,6 +360,25 @@ function finalizeRenderImageResponse(
   response.headers.set("x-render-status", renderStatus);
   response.headers.set("x-render-alias", aliasKey);
   return response;
+}
+
+function renderSvgFallbackBadge(
+  group: GroupInfo,
+  renderStatus: string,
+  aliasKey: string,
+  renderKey: string
+): Response {
+  const svg = renderBadgeSvg(group, { includeAvatar: false, label: "QQ GROUP" }, null);
+
+  return new Response(svg, {
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
+      "x-render-status": renderStatus,
+      "x-render-alias": aliasKey,
+      "x-render-key": renderKey
+    }
+  });
 }
 
 async function forwardRenderRequestAndRecordFailure(
