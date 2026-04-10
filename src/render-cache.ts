@@ -159,6 +159,7 @@ export async function putRenderSuccess(
         },
         options: {
           format: contentTypeToFormat(contentType),
+          animated: false,
           width: 0,
           height: 0,
           fps: 0,
@@ -372,11 +373,7 @@ function renderedAssetCacheControl(ttlSeconds: number | null): string {
   return `public, max-age=${ttlSeconds}`;
 }
 
-function contentTypeToFormat(contentType: string): "png" | "gif" | "webp" {
-  if (contentType.includes("gif")) {
-    return "gif";
-  }
-
+function contentTypeToFormat(contentType: string): "png" | "webp" {
   if (contentType.includes("webp")) {
     return "webp";
   }

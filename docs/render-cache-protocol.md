@@ -89,6 +89,7 @@ Worker 侧对外暴露的读取地址是：
 - `invite`
 - `template`
 - `format`
+- `animated`
 - `width`
 - `height`
 - `fps`
@@ -138,7 +139,7 @@ Authorization: Bearer <RENDER_CALLBACK_TOKEN>
 
 ### 1. 二进制成功回调
 
-最适合图片/GIF 这种最终产物。
+最适合 PNG / WebP 这种最终产物。
 
 请求方式：
 

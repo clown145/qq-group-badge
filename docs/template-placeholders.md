@@ -120,6 +120,7 @@ Worker 现在按下面这组信息生成 `render_key`：
   "compiledSha256": "<编译后 HTML 的 sha256>",
   "options": {
     "format": "png",
+    "animated": false,
     "width": 1200,
     "height": 630,
     "fps": 12,

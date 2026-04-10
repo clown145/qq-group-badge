@@ -6,6 +6,7 @@ import { buildRenderAssetUrl, buildRenderStatusUrl } from "./render-cache.js";
 
 const DEFAULT_RENDER_OPTIONS: RenderOptions = {
   format: "png",
+  animated: false,
   width: 1200,
   height: 630,
   fps: 12,
@@ -13,7 +14,8 @@ const DEFAULT_RENDER_OPTIONS: RenderOptions = {
 };
 
 export function parseRenderOptions(url: URL): RenderOptions {
-  const format = getEnum(url.searchParams.get("format"), ["png", "gif", "webp"]) ?? "png";
+  const format = getEnum(url.searchParams.get("format"), ["png", "webp"]) ?? "png";
+  const animated = parseBoolean(url.searchParams.get("animated"));
   const width = clampInt(url.searchParams.get("width"), 200, 2400, DEFAULT_RENDER_OPTIONS.width);
   const height = clampInt(url.searchParams.get("height"), 100, 2400, DEFAULT_RENDER_OPTIONS.height);
   const fps = clampInt(url.searchParams.get("fps"), 1, 30, DEFAULT_RENDER_OPTIONS.fps);
@@ -24,7 +26,7 @@ export function parseRenderOptions(url: URL): RenderOptions {
     DEFAULT_RENDER_OPTIONS.durationMs
   );
 
-  return { format, width, height, fps, durationMs };
+  return { format, animated: format === "webp" && animated, width, height, fps, durationMs };
 }
 
 export async function fetchTemplateSource(templateUrlInput: string): Promise<{
@@ -190,4 +192,12 @@ function getEnum<T extends string>(value: string | null, allowed: T[]): T | null
   }
 
   return allowed.includes(value as T) ? (value as T) : null;
+}
+
+function parseBoolean(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }

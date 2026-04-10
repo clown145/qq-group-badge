@@ -30,7 +30,8 @@ export interface BadgeOptions {
 }
 
 export interface RenderOptions {
-  format: "png" | "gif" | "webp";
+  format: "png" | "webp";
+  animated: boolean;
   width: number;
   height: number;
   fps: number;

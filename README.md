@@ -8,7 +8,7 @@
 - 输出 README 可用的 `SVG` 徽章
 - 输出调试用 `group.json`
 - 输出模板变量清单和编译后的 HTML 预览
-- 输出图片 / GIF 渲染的缓存状态入口、产物入口和回调入口
+- 输出 PNG / WebP 渲染的缓存状态入口、产物入口和回调入口
 - 预留与 Hugging Face 渲染服务对接的请求协议
 
 ## 接口
@@ -45,13 +45,14 @@ Markdown 示例：
 
 ### `GET /api/render.json`
 
-这是图片 / GIF 渲染的主入口。
+这是 PNG / WebP 渲染的主入口。
 
 查询参数：
 
 - `invite`：QQ群邀请链接
 - `template`：HTML 模板 URL
-- `format`：`png` / `gif` / `webp`
+- `format`：`png` / `webp`
+- `animated`：仅 `format=webp` 时有效，`1` 表示 animated WebP
 - `width`
 - `height`
 - `fps`
@@ -153,7 +154,7 @@ npm run deploy
 
 ## Cloudflare 绑定
 
-图片 / GIF 渲染缓存链路还需要：
+PNG / WebP 渲染缓存链路还需要：
 
 - `RENDER_STATE`
   `KVNamespace`
