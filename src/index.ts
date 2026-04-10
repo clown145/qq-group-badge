@@ -12,11 +12,13 @@ import {
   buildRenderAssetUrl,
   buildRenderStatusResponse,
   buildRenderStatusUrl,
+  getLatestRenderedAssetResponse,
   getRenderState,
   getUsableRenderState,
   getRenderedAssetResponse,
   isRenderStorageConfigured,
   parseRenderKeyOrThrow,
+  putLatestRenderAlias,
   putRenderFailed,
   putRenderFailureFromCallback,
   putRenderPending,
@@ -25,8 +27,17 @@ import {
 } from "./render-cache.js";
 import { renderBadgeSvg } from "./svg.js";
 import { injectPreviewBaseTag } from "./template.js";
-import type { BadgeOptions, Env, RenderCallbackFailure } from "./types.js";
-import { coalesceString, sha256Hex, toBase64 } from "./utils.js";
+import type {
+  BadgeOptions,
+  Env,
+  RenderCallbackFailure,
+  RendererPayload,
+  RenderOptions,
+  RenderStateRecord
+} from "./types.js";
+import { coalesceString, sha256Hex, toBase64, xmlEscape } from "./utils.js";
+
+type RenderImageFormat = "png" | "webp";
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
@@ -53,6 +64,11 @@ export default {
 
       if (url.pathname === "/badge.svg" || url.pathname === "/badge") {
         return await withCache(request, ctx, () => handleBadge(url));
+      }
+
+      const renderImageFormat = getRenderImageFormatFromPath(url.pathname);
+      if (renderImageFormat) {
+        return await handleRenderImage(env, url, origin, ctx, renderImageFormat);
       }
 
       if (url.pathname === "/api/group.json") {
@@ -87,6 +103,15 @@ export default {
         { status: 404 }
       );
     } catch (error) {
+      if (getRenderImageFormatFromPath(url.pathname)) {
+        return renderImageStatusPlaceholder({
+          title: "Invalid badge request",
+          message: error instanceof Error ? error.message : "Unknown render error",
+          status: 200,
+          renderStatus: "invalid_request"
+        });
+      }
+
       return Response.json(
         {
           ok: false,
@@ -260,6 +285,131 @@ async function handleRender(env: Env, url: URL, origin: string): Promise<Respons
   );
 }
 
+async function handleRenderImage(
+  env: Env,
+  url: URL,
+  origin: string,
+  ctx: ExecutionContext,
+  format: RenderImageFormat
+): Promise<Response> {
+  const inviteUrl = getInviteUrlOrThrow(url);
+  const templateUrl = getTemplateUrlOrThrow(url);
+  const options = parseRenderImageOptions(url, format);
+  const aliasKey = await buildRenderAliasKey(env, inviteUrl, templateUrl, options);
+  const group = await fetchGroupInfo(inviteUrl);
+  const payload = await buildRendererPayload(env, origin, group, templateUrl, options);
+  const existing = await getUsableRenderState(env, payload.renderKey);
+
+  if (existing?.status === "ready") {
+    const response = await getRenderedAssetResponse(env, payload.renderKey);
+
+    if (response) {
+      ctx.waitUntil(
+        putLatestRenderAlias(
+          env,
+          aliasKey,
+          payload.renderKey,
+          existing.result?.contentType ?? contentTypeForFormat(format)
+        )
+      );
+      response.headers.set("x-render-status", "ready");
+      response.headers.set("x-render-alias", aliasKey);
+      return response;
+    }
+  }
+
+  let state = existing;
+  const retryFailed = url.searchParams.get("retry") === "1";
+
+  if (existing?.status === "failed" && !retryFailed) {
+    const stale = await getLatestRenderedAssetResponse(env, aliasKey);
+    if (stale) {
+      stale.headers.set("x-render-status", "stale");
+      return stale;
+    }
+
+    return renderImageStatusPlaceholder({
+      title: "Render failed",
+      message: existing.error?.message ?? "The renderer reported a failure.",
+      status: 200,
+      renderKey: payload.renderKey,
+      renderStatus: "failed"
+    });
+  }
+
+  if (existing?.status !== "pending") {
+    if (!isRenderStorageConfigured(env)) {
+      return renderImageStatusPlaceholder({
+        title: "Render storage is not configured",
+        message: "RENDER_STATE and RENDER_BUCKET are required.",
+        status: 200,
+        renderKey: payload.renderKey,
+        renderStatus: "not_configured"
+      });
+    }
+
+    if (!isRendererConfigured(env)) {
+      return renderImageStatusPlaceholder({
+        title: "Renderer is not configured",
+        message: "RENDERER_BASE_URL is required.",
+        status: 200,
+        renderKey: payload.renderKey,
+        renderStatus: "not_configured"
+      });
+    }
+
+    const pending = await putRenderPending(env, payload, existing);
+    state = pending;
+    ctx.waitUntil(forwardRenderRequestAndRecordFailure(env, payload, pending));
+  }
+
+  const stale = await getLatestRenderedAssetResponse(env, aliasKey);
+  if (stale) {
+    stale.headers.set("x-render-status", "stale");
+    return stale;
+  }
+
+  return renderImageStatusPlaceholder({
+    title: "Rendering badge",
+    message: "Refresh this image after the renderer finishes.",
+    status: 200,
+    renderKey: payload.renderKey,
+    renderStatus: state?.status ?? "missing"
+  });
+}
+
+async function forwardRenderRequestAndRecordFailure(
+  env: Env,
+  payload: RendererPayload,
+  pending: RenderStateRecord
+): Promise<void> {
+  try {
+    const upstream = await forwardRenderRequest(env, payload);
+
+    if (!upstream.ok) {
+      await putRenderFailed(
+        env,
+        payload.renderKey,
+        {
+          code: `renderer_${upstream.status}`,
+          message: `Renderer request failed with ${upstream.status}`
+        },
+        pending
+      );
+    }
+  } catch (error) {
+    await putRenderFailed(
+      env,
+      payload.renderKey,
+      {
+        code: "renderer_fetch_failed",
+        message: error instanceof Error ? error.message : "Renderer request failed"
+      },
+      pending
+    );
+  }
+}
+
 async function handleRenderStatus(env: Env, url: URL, origin: string): Promise<Response> {
   const renderKey = parseRenderKeyOrThrow(url);
   const state = await getUsableRenderState(env, renderKey);
@@ -419,6 +569,7 @@ function renderHome(url: URL): Response {
   const sampleBadge = `${origin}/badge.svg?invite=${encodeURIComponent(sampleInvite)}`;
   const sampleJson = `${origin}/api/group.json?invite=${encodeURIComponent(sampleInvite)}`;
   const sampleTemplate = "https://example.com/template.html";
+  const sampleTemplateImage = `${origin}/badge.webp?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}&animated=1`;
   const sampleTemplateJson = `${origin}/api/template.json?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}`;
   const samplePreview = `${origin}/preview.html?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}`;
   const sampleRender = `${origin}/api/render.json?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}&format=png`;
@@ -431,6 +582,7 @@ function renderHome(url: URL): Response {
       service: "qq-group-badge",
       endpoints: {
         badge_svg: sampleBadge,
+        badge_webp: sampleTemplateImage,
         group_json: sampleJson,
         template_json: sampleTemplateJson,
         preview_html: samplePreview,
@@ -456,6 +608,85 @@ function parseBadgeOptions(url: URL): BadgeOptions {
     includeAvatar,
     label
   };
+}
+
+function getRenderImageFormatFromPath(pathname: string): RenderImageFormat | null {
+  if (pathname === "/badge.png" || pathname === "/render.png") {
+    return "png";
+  }
+
+  if (pathname === "/badge.webp" || pathname === "/render.webp") {
+    return "webp";
+  }
+
+  return null;
+}
+
+function parseRenderImageOptions(url: URL, format: RenderImageFormat): RenderOptions {
+  const options = parseRenderOptions(url);
+
+  return {
+    ...options,
+    format,
+    animated: format === "webp" && options.animated
+  };
+}
+
+async function buildRenderAliasKey(
+  env: Env,
+  inviteUrl: string,
+  templateUrl: string,
+  options: RenderOptions
+): Promise<string> {
+  return sha256Hex(
+    JSON.stringify({
+      cacheVersion: env.CACHE_VERSION ?? "v1",
+      inviteUrl,
+      templateUrl,
+      options
+    })
+  );
+}
+
+function contentTypeForFormat(format: RenderImageFormat): string {
+  return format === "webp" ? "image/webp" : "image/png";
+}
+
+function renderImageStatusPlaceholder(options: {
+  title: string;
+  message: string;
+  status: number;
+  renderKey?: string;
+  renderStatus: string;
+}): Response {
+  const title = xmlEscape(options.title);
+  const message = xmlEscape(options.message);
+  const renderKey = options.renderKey ? xmlEscape(options.renderKey.slice(0, 12)) : "";
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500" viewBox="0 0 1000 500" role="img" aria-label="${title}">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7f2ff" />
+      <stop offset="52%" stop-color="#f6faf7" />
+      <stop offset="100%" stop-color="#e9f5ef" />
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="500" fill="url(#bg)" />
+  <rect x="80" y="100" width="840" height="300" rx="42" fill="rgba(255,255,255,0.82)" stroke="rgba(16,32,51,0.12)" />
+  <circle cx="170" cy="250" r="58" fill="#d7eaff" />
+  <text x="260" y="230" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#102033">${title}</text>
+  <text x="260" y="282" font-family="Arial, sans-serif" font-size="24" font-weight="600" fill="#63738a">${message}</text>
+  <text x="260" y="330" font-family="Arial, sans-serif" font-size="18" font-weight="600" fill="#0c7ff2">${renderKey ? `render ${renderKey}` : "qq-group-badge"}</text>
+</svg>`;
+
+  return new Response(svg, {
+    status: options.status,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "no-store",
+      "x-render-status": options.renderStatus
+    }
+  });
 }
 
 async function fetchAvatarDataUrl(avatarUrl: string): Promise<string | null> {

@@ -8,6 +8,7 @@
 - 输出 README 可用的 `SVG` 徽章
 - 输出调试用 `group.json`
 - 输出模板变量清单和编译后的 HTML 预览
+- 输出 README 可直接使用的 PNG / WebP 模板渲染图片
 - 输出 PNG / WebP 渲染的缓存状态入口、产物入口和回调入口
 - 预留与 Hugging Face 渲染服务对接的请求协议
 
@@ -33,6 +34,34 @@ Markdown 示例：
 [![QQ群徽章](https://your-worker.example.com/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc)](https://qm.qq.com/q/oTzIrdDBIc)
 ```
 
+### `GET /badge.webp` / `GET /badge.png`
+
+使用 HTML 模板渲染 README 可直接引用的图片。
+
+查询参数：
+
+- `invite`：QQ群邀请链接
+- `template`：HTML 模板 URL
+- `animated=1`：仅 `badge.webp` 有效，返回 animated WebP
+- `width`
+- `height`
+- `fps`
+- `duration_ms`
+
+示例：
+
+```text
+/badge.webp?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-card-template.html&animated=1&width=1000&height=500
+```
+
+`/render.webp` 和 `/render.png` 是同一功能的别名。
+
+缓存策略：
+
+- 当前 `render_key` 已完成时，直接返回 R2 里的 PNG / WebP。
+- 当前内容变化且新图还在渲染时，优先返回上一次成功图片，并在后台触发新图。
+- 完全没有可用缓存时，返回 `rendering` SVG 占位图，并在后台触发渲染。
+
 ### `GET /api/group.json`
 
 返回标准化后的群资料 JSON。
@@ -45,7 +74,7 @@ Markdown 示例：
 
 ### `GET /api/render.json`
 
-这是 PNG / WebP 渲染的主入口。
+这是 PNG / WebP 渲染的 JSON 调试入口。README 直接引用图片时优先使用 `/badge.webp` 或 `/badge.png`。
 
 查询参数：
 

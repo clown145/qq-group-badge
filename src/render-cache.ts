@@ -5,6 +5,13 @@ const DEFAULT_FAILED_TTL_SECONDS = 30 * 60;
 const DEFAULT_READY_TTL_SECONDS = 48 * 60 * 60;
 const MIN_KV_TTL_SECONDS = 60;
 
+interface LatestRenderAliasRecord {
+  aliasKey: string;
+  renderKey: string;
+  contentType: string;
+  updatedAt: string;
+}
+
 export async function getRenderState(
   env: Env,
   renderKey: string
@@ -215,6 +222,55 @@ export async function getRenderedAssetResponse(
   });
 }
 
+export async function getLatestRenderedAssetResponse(
+  env: Env,
+  aliasKey: string
+): Promise<Response | null> {
+  if (!env.RENDER_STATE) {
+    return null;
+  }
+
+  const record = await env.RENDER_STATE.get<LatestRenderAliasRecord>(
+    renderLatestKvKey(aliasKey),
+    "json"
+  );
+
+  if (!record || record.aliasKey !== aliasKey || !/^[a-f0-9]{64}$/i.test(record.renderKey)) {
+    return null;
+  }
+
+  const response = await getRenderedAssetResponse(env, record.renderKey);
+  if (!response) {
+    await env.RENDER_STATE.delete(renderLatestKvKey(aliasKey));
+    return null;
+  }
+
+  response.headers.set("x-render-stale", "1");
+  response.headers.set("x-render-alias", aliasKey);
+  return response;
+}
+
+export async function putLatestRenderAlias(
+  env: Env,
+  aliasKey: string,
+  renderKey: string,
+  contentType: string
+): Promise<void> {
+  if (!env.RENDER_STATE) {
+    return;
+  }
+
+  const record: LatestRenderAliasRecord = {
+    aliasKey,
+    renderKey,
+    contentType,
+    updatedAt: new Date().toISOString()
+  };
+
+  const readyTtlSeconds = getReadyTtlSeconds(env);
+  await putKvJson(env, renderLatestKvKey(aliasKey), record, readyTtlSeconds ?? undefined);
+}
+
 export function buildRenderStatusResponse(
   state: RenderStateRecord | null,
   assetUrl: string,
@@ -290,6 +346,10 @@ export function renderStateKvKey(renderKey: string): string {
   return `render-state:${renderKey}`;
 }
 
+export function renderLatestKvKey(aliasKey: string): string {
+  return `render-latest:${aliasKey}`;
+}
+
 export function renderObjectKey(renderKey: string): string {
   return `renders/${renderKey}`;
 }
@@ -320,12 +380,25 @@ async function putRenderState(
     return;
   }
 
-  if (expirationTtl === undefined) {
-    await env.RENDER_STATE.put(renderStateKvKey(record.renderKey), JSON.stringify(record));
+  await putKvJson(env, renderStateKvKey(record.renderKey), record, expirationTtl);
+}
+
+async function putKvJson(
+  env: Env,
+  key: string,
+  value: unknown,
+  expirationTtl?: number
+): Promise<void> {
+  if (!env.RENDER_STATE) {
     return;
   }
 
-  await env.RENDER_STATE.put(renderStateKvKey(record.renderKey), JSON.stringify(record), {
+  if (expirationTtl === undefined) {
+    await env.RENDER_STATE.put(key, JSON.stringify(value));
+    return;
+  }
+
+  await env.RENDER_STATE.put(key, JSON.stringify(value), {
     expirationTtl: Math.max(expirationTtl, MIN_KV_TTL_SECONDS)
   });
 }
