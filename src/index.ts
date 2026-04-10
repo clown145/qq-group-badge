@@ -628,8 +628,16 @@ function parseRenderImageOptions(url: URL, format: RenderImageFormat): RenderOpt
   return {
     ...options,
     format,
-    animated: format === "webp" && options.animated
+    animated: format === "webp" && parseQueryBoolean(url.searchParams.get("animated"))
   };
+}
+
+function parseQueryBoolean(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }
 
 async function buildRenderAliasKey(
