@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="430" height="96" viewBox="0 0 430 96" role="img" aria-labelledby="title desc">
+  <title id="title">{{group_name}}</title>
+  <desc id="desc">{{group_code}} · {{member_count_text}} members</desc>
+  <style>
+    .sweep {
+      animation: sweep 3.2s ease-in-out infinite;
+    }
+
+    .pulse {
+      animation: pulse 2.4s ease-in-out infinite;
+      transform-origin: 48px 48px;
+    }
+
+    .float {
+      animation: float 3.8s ease-in-out infinite;
+    }
+
+    @keyframes sweep {
+      0% {
+        transform: translateX(-230px);
+        opacity: 0;
+      }
+      18% {
+        opacity: 0.72;
+      }
+      58% {
+        opacity: 0.2;
+      }
+      100% {
+        transform: translateX(450px);
+        opacity: 0;
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.48;
+      }
+      50% {
+        transform: scale(1.18);
+        opacity: 0.16;
+      }
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-2px);
+      }
+    }
+  </style>
+  <defs>
+    <linearGradient id="badge-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#101f1b" />
+      <stop offset="52%" stop-color="#1f6f5b" />
+      <stop offset="100%" stop-color="#f0b44d" />
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="48%" stop-color="#ffffff" stop-opacity="0.58" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="avatar-clip">
+      <circle cx="48" cy="48" r="25" />
+    </clipPath>
+    <clipPath id="card-clip">
+      <rect width="430" height="96" rx="20" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#card-clip)">
+    <rect width="430" height="96" fill="url(#badge-bg)" />
+    <circle class="pulse" cx="48" cy="48" r="34" fill="#fff3c2" />
+    <circle class="float" cx="378" cy="18" r="54" fill="#ffffff" fill-opacity="0.11" />
+    <circle class="float" cx="340" cy="104" r="76" fill="#10231e" fill-opacity="0.28" />
+    <rect class="sweep" x="-80" y="-18" width="84" height="140" transform="rotate(18)" fill="url(#shine)" />
+  </g>
+
+  <rect x="12" y="12" width="406" height="72" rx="16" fill="#ffffff" fill-opacity="0.12" />
+  <circle cx="48" cy="48" r="25" fill="#ffffff" fill-opacity="0.18" />
+  <image href="{{avatar_data_url}}" x="23" y="23" width="50" height="50" clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice" />
+
+  <g class="float">
+    <text x="88" y="34" font-family="Verdana, DejaVu Sans, sans-serif" font-size="11" font-weight="700" letter-spacing="0.14em" fill="#f7ebc4">LIVE QQ GROUP</text>
+    <text x="88" y="58" font-family="Verdana, DejaVu Sans, sans-serif" font-size="21" font-weight="700" fill="#ffffff">{{group_name}}</text>
+    <rect x="88" y="68" width="210" height="18" rx="9" fill="#ffffff" fill-opacity="0.18" />
+    <text x="99" y="81" font-family="Verdana, DejaVu Sans, sans-serif" font-size="10.5" font-weight="700" fill="#fff8dd">群号 {{group_code}} · {{member_count_text}} members</text>
+  </g>
+</svg>
