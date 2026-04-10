@@ -5,3 +5,12 @@ compatibility_date = "2026-04-10"
 [vars]
 CACHE_VERSION = "v1"
 RENDER_READY_TTL_SECONDS = "172800"
+RENDERER_BASE_URL = "https://clown145-qq-group-badge-renderer.hf.space"
+
+[[kv_namespaces]]
+binding = "RENDER_STATE"
+id = "a84622d37c804d2bb27b4a13ff069ecf"
+
+[[r2_buckets]]
+binding = "RENDER_BUCKET"
+bucket_name = "qq-group-badge-renders"
