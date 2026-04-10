@@ -35,7 +35,8 @@ import type {
   RenderCallbackFailure,
   RendererPayload,
   RenderOptions,
-  RenderStateRecord
+  RenderStateRecord,
+  TemplateVariables
 } from "./types.js";
 import { coalesceString, sha256Hex, toBase64, xmlEscape } from "./utils.js";
 
@@ -170,25 +171,16 @@ async function handleSvgTemplateBadge(url: URL): Promise<Response> {
   const templateUrl = getTemplateUrlOrThrow(url);
   const group = await fetchGroupInfo(inviteUrl);
   const source = await fetchTemplateSource(templateUrl);
-  const includeAvatar = url.searchParams.get("avatar") !== "0";
-  const includeBackground = url.searchParams.get("background") !== "0";
-  const needsAvatarDataUrl = templateUsesVariable(source.templateHtml, "avatar_data_url");
-  const needsBackgroundDataUrl = templateUsesVariable(
-    source.templateHtml,
-    "group_background_data_url"
-  );
-  const avatarDataUrl =
-    includeAvatar && needsAvatarDataUrl && group.avatarUrl
-      ? await fetchImageDataUrl(group.avatarUrl)
-      : "";
-  const backgroundDataUrl =
-    includeBackground && needsBackgroundDataUrl && group.backgroundUrl
-      ? await fetchImageDataUrl(group.backgroundUrl, 1_500_000)
-      : "";
-  const template = await buildCompiledTemplate(source.templateUrl, source.templateHtml, group, {
-    avatar_data_url: avatarDataUrl ?? "",
-    group_background_data_url: backgroundDataUrl ?? ""
+  const imageDataVariables = await buildSvgImageDataVariables(source.templateHtml, group, {
+    includeAvatar: url.searchParams.get("avatar") !== "0",
+    includeBackground: url.searchParams.get("background") !== "0"
   });
+  const template = await buildCompiledTemplate(
+    source.templateUrl,
+    source.templateHtml,
+    group,
+    imageDataVariables
+  );
   const svg = normalizeSvgTemplateOutput(template.compiledHtml);
 
   return new Response(svg, {
@@ -1027,7 +1019,7 @@ function renderHome(url: URL): Response {
 
     <section class="notes">
       <div class="note"><strong>模板要求</strong>模板必须是公开可访问的 SVG 原文链接，例如 raw.githubusercontent.com，不要用 GitHub 的 blob 页面。</div>
-      <div class="note"><strong>头像建议</strong>SVG 模板里用 {{avatar_data_url}}，Worker 会把头像转成 data URL，更适合 GitHub README。</div>
+      <div class="note"><strong>图片建议</strong>SVG 模板里优先用 {{avatar_data_url}}、{{group_background_data_url}} 这类 data URL 占位符，更适合 GitHub README。</div>
       <div class="note"><strong>SVG 动图</strong>浏览器支持 CSS / SMIL SVG 动画，但 README 平台不一定稳定。需要稳定动图时仍建议用 WebP 渲染入口。</div>
     </section>
   </main>
@@ -1238,6 +1230,199 @@ function templateUsesVariable(templateSource: string, variableName: string): boo
   );
 }
 
+function templateUsesAnyVariable(templateSource: string, variableNames: string[]): boolean {
+  return variableNames.some((variableName) => templateUsesVariable(templateSource, variableName));
+}
+
+async function buildSvgImageDataVariables(
+  templateSource: string,
+  group: GroupInfo,
+  options: {
+    includeAvatar: boolean;
+    includeBackground: boolean;
+  }
+): Promise<Partial<TemplateVariables>> {
+  const variables: Partial<TemplateVariables> = {};
+
+  if (
+    options.includeAvatar &&
+    group.avatarUrl &&
+    templateUsesVariable(templateSource, "avatar_data_url")
+  ) {
+    variables.avatar_data_url = (await fetchImageDataUrl(group.avatarUrl)) ?? "";
+  }
+
+  if (options.includeBackground && group.backgroundUrls.length > 0) {
+    const needsBackgroundList = templateUsesAnyVariable(templateSource, [
+      "group_background_data_urls",
+      "group_background_data_urls_csv"
+    ]);
+    const needsBackgroundPrimary = templateUsesVariable(templateSource, "group_background_data_url");
+    const needsBackground1 = templateUsesVariable(templateSource, "group_background_1_data_url");
+    const needsBackground2 = templateUsesVariable(templateSource, "group_background_2_data_url");
+    const needsBackground3 = templateUsesVariable(templateSource, "group_background_3_data_url");
+
+    if (
+      needsBackgroundList ||
+      needsBackgroundPrimary ||
+      needsBackground1 ||
+      needsBackground2 ||
+      needsBackground3
+    ) {
+      const backgroundDataUrls = await fetchSelectedImageDataUrls(
+        group.backgroundUrls,
+        needsBackgroundList
+          ? allIndexes(group.backgroundUrls)
+          : [
+              ...(needsBackgroundPrimary || needsBackground1 ? [0] : []),
+              ...(needsBackground2 ? [1] : []),
+              ...(needsBackground3 ? [2] : [])
+            ],
+        1_500_000
+      );
+
+      if (needsBackgroundPrimary) {
+        variables.group_background_data_url = backgroundDataUrls[0] ?? "";
+      }
+
+      if (needsBackgroundList) {
+        variables.group_background_data_urls = backgroundDataUrls;
+        variables.group_background_data_urls_csv = backgroundDataUrls.join(",");
+      }
+
+      if (needsBackground1) {
+        variables.group_background_1_data_url = backgroundDataUrls[0] ?? "";
+      }
+
+      if (needsBackground2) {
+        variables.group_background_2_data_url = backgroundDataUrls[1] ?? "";
+      }
+
+      if (needsBackground3) {
+        variables.group_background_3_data_url = backgroundDataUrls[2] ?? "";
+      }
+    }
+  }
+
+  if (group.memberAvatarUrls.length > 0) {
+    const needsMemberAvatarList = templateUsesAnyVariable(templateSource, [
+      "member_avatar_data_urls",
+      "member_avatar_data_urls_csv"
+    ]);
+    const needsMemberAvatar1 = templateUsesVariable(templateSource, "member_avatar_1_data_url");
+    const needsMemberAvatar2 = templateUsesVariable(templateSource, "member_avatar_2_data_url");
+    const needsMemberAvatar3 = templateUsesVariable(templateSource, "member_avatar_3_data_url");
+
+    if (needsMemberAvatarList || needsMemberAvatar1 || needsMemberAvatar2 || needsMemberAvatar3) {
+      const memberAvatarDataUrls = await fetchSelectedImageDataUrls(
+        group.memberAvatarUrls,
+        needsMemberAvatarList
+          ? allIndexes(group.memberAvatarUrls)
+          : [
+              ...(needsMemberAvatar1 ? [0] : []),
+              ...(needsMemberAvatar2 ? [1] : []),
+              ...(needsMemberAvatar3 ? [2] : [])
+            ],
+        512_000
+      );
+
+      if (needsMemberAvatarList) {
+        variables.member_avatar_data_urls = memberAvatarDataUrls;
+        variables.member_avatar_data_urls_csv = memberAvatarDataUrls.join(",");
+      }
+
+      if (needsMemberAvatar1) {
+        variables.member_avatar_1_data_url = memberAvatarDataUrls[0] ?? "";
+      }
+
+      if (needsMemberAvatar2) {
+        variables.member_avatar_2_data_url = memberAvatarDataUrls[1] ?? "";
+      }
+
+      if (needsMemberAvatar3) {
+        variables.member_avatar_3_data_url = memberAvatarDataUrls[2] ?? "";
+      }
+    }
+  }
+
+  if (group.assetInfos.length > 0) {
+    const needsAssetIconList = templateUsesAnyVariable(templateSource, [
+      "group_asset_icon_data_urls",
+      "group_asset_icon_data_urls_csv",
+      "group_assets_with_icon_data_urls"
+    ]);
+    const needsFileIcon = templateUsesVariable(templateSource, "group_file_icon_data_url");
+    const needsAlbumIcon = templateUsesVariable(templateSource, "group_album_icon_data_url");
+    const needsEssenceIcon = templateUsesVariable(templateSource, "group_essence_icon_data_url");
+
+    if (needsAssetIconList) {
+      const iconUrls = group.assetInfos
+        .map((asset) => asset.iconUrl ?? "")
+        .filter((iconUrl) => iconUrl.length > 0);
+      const iconDataUrls = await fetchImageDataUrls(iconUrls, 512_000);
+      let iconIndex = 0;
+      const assetsWithIconDataUrls = group.assetInfos.map((asset) => {
+        const iconDataUrl = asset.iconUrl ? iconDataUrls[iconIndex++] ?? "" : "";
+        return {
+          ...asset,
+          iconDataUrl
+        };
+      });
+
+      variables.group_asset_icon_data_urls = iconDataUrls;
+      variables.group_asset_icon_data_urls_csv = iconDataUrls.join(",");
+      variables.group_assets_with_icon_data_urls = assetsWithIconDataUrls;
+
+      if (needsFileIcon) {
+        variables.group_file_icon_data_url = findAssetIconDataUrl(
+          assetsWithIconDataUrls,
+          "群文件"
+        );
+      }
+
+      if (needsAlbumIcon) {
+        variables.group_album_icon_data_url = findAssetIconDataUrl(
+          assetsWithIconDataUrls,
+          "群相册"
+        );
+      }
+
+      if (needsEssenceIcon) {
+        variables.group_essence_icon_data_url = findAssetIconDataUrl(
+          assetsWithIconDataUrls,
+          "群精华"
+        );
+      }
+    } else {
+      if (needsFileIcon) {
+        variables.group_file_icon_data_url = await fetchAssetIconDataUrl(group, "群文件");
+      }
+
+      if (needsAlbumIcon) {
+        variables.group_album_icon_data_url = await fetchAssetIconDataUrl(group, "群相册");
+      }
+
+      if (needsEssenceIcon) {
+        variables.group_essence_icon_data_url = await fetchAssetIconDataUrl(group, "群精华");
+      }
+    }
+  }
+
+  return variables;
+}
+
+async function fetchAssetIconDataUrl(group: GroupInfo, title: string): Promise<string> {
+  const iconUrl = group.assetInfos.find((asset) => asset.title === title)?.iconUrl;
+  return iconUrl ? (await fetchImageDataUrl(iconUrl, 512_000)) ?? "" : "";
+}
+
+function findAssetIconDataUrl(
+  assets: Array<GroupInfo["assetInfos"][number] & { iconDataUrl: string }>,
+  title: string
+): string {
+  return assets.find((asset) => asset.title === title)?.iconDataUrl ?? "";
+}
+
 function normalizeSvgTemplateOutput(compiledSvg: string): string {
   const svg = compiledSvg.trim();
 
@@ -1344,11 +1529,16 @@ function renderImageStatusPlaceholder(options: {
 }
 
 async function fetchImageDataUrl(imageUrl: string, maxBytes = 512_000): Promise<string | null> {
-  const response = await fetch(imageUrl, {
-    headers: {
-      accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
-    }
-  });
+  let response: Response;
+  try {
+    response = await fetch(imageUrl, {
+      headers: {
+        accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+      }
+    });
+  } catch {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
@@ -1365,6 +1555,29 @@ async function fetchImageDataUrl(imageUrl: string, maxBytes = 512_000): Promise<
   }
 
   return `data:${contentType};base64,${toBase64(buffer)}`;
+}
+
+async function fetchImageDataUrls(imageUrls: string[], maxBytes: number): Promise<string[]> {
+  return fetchSelectedImageDataUrls(imageUrls, allIndexes(imageUrls), maxBytes);
+}
+
+async function fetchSelectedImageDataUrls(
+  imageUrls: string[],
+  indexes: number[],
+  maxBytes: number
+): Promise<string[]> {
+  const dataUrls = imageUrls.map(() => "");
+  const uniqueIndexes = [...new Set(indexes)].filter((index) => index in imageUrls);
+  await Promise.all(
+    uniqueIndexes.map(async (index) => {
+      dataUrls[index] = (await fetchImageDataUrl(imageUrls[index], maxBytes)) ?? "";
+    })
+  );
+  return dataUrls;
+}
+
+function allIndexes(values: unknown[]): number[] {
+  return values.map((_, index) => index);
 }
 
 async function withCache(

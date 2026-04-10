@@ -135,6 +135,7 @@ README 场景建议优先使用 `/badge.svg`。只有需要栅格图、复杂 HT
 | `{{group_code}}` | 群号。 |
 | `{{member_count_text}}` | 群人数文本。 |
 | `{{avatar_data_url}}` | base64 头像，适合 SVG 模板。 |
+| `{{created_at_text}}` | 建群日期，页面提供时才有值。 |
 | `{{group_level_badge}}` | 群等级文本，例如 `LV4`。 |
 | `{{group_tags_text}}` | 群标签文本。 |
 | `{{group_file_count_text}}` | 群文件数量。 |
@@ -143,6 +144,8 @@ README 场景建议优先使用 `/badge.svg`。只有需要栅格图、复杂 HT
 | `{{member_distribution_text}}` | 成员分布摘要。 |
 | `{{group_background_url}}` | 群背景图 URL。 |
 | `{{group_background_data_url}}` | base64 群背景图，适合 SVG 模板。 |
+| `{{member_avatar_1_data_url}}` | 第 1 个成员头像的 base64 data URL。 |
+| `{{group_file_icon_data_url}}` | 群文件图标的 base64 data URL。 |
 | `{{invite_url}}` | 原始邀请链接。 |
 
 完整列表见 [模板占位符](docs/template-placeholders.md)。

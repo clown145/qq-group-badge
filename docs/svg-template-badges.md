@@ -97,6 +97,7 @@ https://github.com/<owner>/<repo>/blob/<branch>/<path>/template.svg
 | `{{group_code}}` | 群号。 |
 | `{{member_count_text}}` | 群人数文本。 |
 | `{{avatar_data_url}}` | base64 头像，推荐用于 SVG。 |
+| `{{created_at_text}}` | 建群日期，页面提供时才有值。 |
 | `{{group_level_badge}}` | 群等级文本，例如 `LV4`。 |
 | `{{group_tags_text}}` | 群标签文本。 |
 | `{{group_file_count_text}}` | 群文件数量。 |
@@ -105,11 +106,13 @@ https://github.com/<owner>/<repo>/blob/<branch>/<path>/template.svg
 | `{{member_distribution_text}}` | 成员分布摘要。 |
 | `{{group_background_url}}` | 群背景图 URL。 |
 | `{{group_background_data_url}}` | base64 群背景图，推荐用于 SVG。 |
+| `{{member_avatar_1_data_url}}` | 第 1 个成员头像的 base64 data URL。 |
+| `{{group_file_icon_data_url}}` | 群文件图标的 base64 data URL。 |
 | `{{invite_url}}` | 原始邀请链接。 |
 
 完整列表见 [模板占位符](template-placeholders.md)。
 
-## 头像处理
+## 图片处理
 
 SVG 模板中推荐使用 `{{avatar_data_url}}`：
 
@@ -119,7 +122,7 @@ SVG 模板中推荐使用 `{{avatar_data_url}}`：
 
 原因是 GitHub 和图片代理可能会阻止 SVG 内部继续加载外部图片。使用 `avatar_data_url` 后，头像会以内联 base64 的形式写入最终 SVG，更适合 README。
 
-Worker 只会在模板中出现 `avatar_data_url` 时抓取并内联头像。不使用头像的模板不会额外请求头像资源。
+群背景图、成员头像和群资产图标也提供对应的 `*_data_url` 占位符。Worker 只会在模板中出现对应 data URL 变量时抓取并内联图片。不使用图片的模板不会额外请求这些资源。
 
 禁用头像：
 
@@ -132,6 +135,18 @@ Worker 只会在模板中出现 `avatar_data_url` 时抓取并内联头像。不
 ```text
 /badge.svg?invite=<QQ群链接>&template=<SVG模板链接>&background=0
 ```
+
+常见图片变量：
+
+| 占位符 | 说明 |
+| --- | --- |
+| `{{avatar_data_url}}` | 群头像。 |
+| `{{group_background_data_url}}` | 第一张群背景图。 |
+| `{{group_background_1_data_url}}` | 第 1 张群背景图。 |
+| `{{member_avatar_1_data_url}}` | 第 1 个成员头像。 |
+| `{{group_file_icon_data_url}}` | 群文件图标。 |
+| `{{group_album_icon_data_url}}` | 群相册图标。 |
+| `{{group_essence_icon_data_url}}` | 群精华图标。 |
 
 ## 动画支持
 

@@ -9,11 +9,15 @@ export function buildTemplateVariables(
   extraVariables: Partial<TemplateVariables> = {}
 ): TemplateVariables {
   const createdAtIso = group.createdAt ? new Date(group.createdAt * 1000).toISOString() : "";
+  const createdAtDate = createdAtIso ? createdAtIso.slice(0, 10) : "";
   const fetchedAtUnix = Math.floor(Date.parse(group.fetchedAt) / 1000);
   const groupLevelText = group.groupLevel === null ? "" : String(group.groupLevel);
   const fileAsset = findAssetInfo(group, "群文件");
   const albumAsset = findAssetInfo(group, "群相册");
   const essenceAsset = findAssetInfo(group, "群精华");
+  const assetIconUrls = group.assetInfos
+    .map((asset) => asset.iconUrl ?? "")
+    .filter((url) => url.length > 0);
   const memberDistributionText = group.memberDistribution.map(formatMemberDistribution).join(" · ");
   const groupAssetsText = group.assetInfos
     .map((asset) => `${asset.title} ${asset.count === null ? "" : asset.count}${asset.unit}`.trim())
@@ -39,10 +43,26 @@ export function buildTemplateVariables(
     group_background_data_url: "",
     group_background_urls: group.backgroundUrls,
     group_background_urls_csv: group.backgroundUrls.join(","),
+    group_background_data_urls: [],
+    group_background_data_urls_csv: "",
     group_background_count: group.backgroundUrls.length,
+    group_background_1_url: group.backgroundUrls[0] ?? "",
+    group_background_1_data_url: "",
+    group_background_2_url: group.backgroundUrls[1] ?? "",
+    group_background_2_data_url: "",
+    group_background_3_url: group.backgroundUrls[2] ?? "",
+    group_background_3_data_url: "",
     member_avatar_urls: group.memberAvatarUrls,
     member_avatar_urls_csv: group.memberAvatarUrls.join(","),
+    member_avatar_data_urls: [],
+    member_avatar_data_urls_csv: "",
     member_avatar_count: group.memberAvatarUrls.length,
+    member_avatar_1_url: group.memberAvatarUrls[0] ?? "",
+    member_avatar_1_data_url: "",
+    member_avatar_2_url: group.memberAvatarUrls[1] ?? "",
+    member_avatar_2_data_url: "",
+    member_avatar_3_url: group.memberAvatarUrls[2] ?? "",
+    member_avatar_3_data_url: "",
     member_distribution: group.memberDistribution,
     member_distribution_text: memberDistributionText,
     member_distribution_count: group.memberDistribution.length,
@@ -51,15 +71,29 @@ export function buildTemplateVariables(
     group_assets: group.assetInfos,
     group_assets_text: groupAssetsText,
     group_asset_count: group.assetInfos.length,
+    group_asset_icon_urls: assetIconUrls,
+    group_asset_icon_urls_csv: assetIconUrls.join(","),
+    group_asset_icon_data_urls: [],
+    group_asset_icon_data_urls_csv: "",
+    group_assets_with_icon_data_urls: group.assetInfos.map((asset) => ({
+      ...asset,
+      iconDataUrl: ""
+    })),
     group_file_count: fileAsset?.count ?? null,
     group_file_count_text: formatNullableNumber(fileAsset?.count),
     group_file_unit: fileAsset?.unit ?? "",
+    group_file_icon_url: fileAsset?.iconUrl ?? "",
+    group_file_icon_data_url: "",
     group_album_count: albumAsset?.count ?? null,
     group_album_count_text: formatNullableNumber(albumAsset?.count),
     group_album_unit: albumAsset?.unit ?? "",
+    group_album_icon_url: albumAsset?.iconUrl ?? "",
+    group_album_icon_data_url: "",
     group_essence_count: essenceAsset?.count ?? null,
     group_essence_count_text: formatNullableNumber(essenceAsset?.count),
     group_essence_unit: essenceAsset?.unit ?? "",
+    group_essence_icon_url: essenceAsset?.iconUrl ?? "",
+    group_essence_icon_data_url: "",
     group_relation_count: group.relationCount,
     group_relation_count_text: group.relationCount === null ? "" : String(group.relationCount),
     invite_url: group.sourceUrl,
@@ -68,6 +102,8 @@ export function buildTemplateVariables(
     invite_subtitle: group.inviteSubtitle ?? "",
     created_at_unix: group.createdAt,
     created_at_iso: createdAtIso,
+    created_at_date: createdAtDate,
+    created_at_text: createdAtDate,
     fetched_at: group.fetchedAt,
     fetched_at_unix: Number.isFinite(fetchedAtUnix) ? fetchedAtUnix : null,
     ...extraVariables
