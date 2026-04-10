@@ -1,0 +1,9 @@
+node_modules
+worker/node_modules
+worker/.wrangler
+renderer-hf/node_modules
+.dev.vars
+coverage
+dist
+tmp
+.tmp-dist

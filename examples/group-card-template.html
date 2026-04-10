@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{group_name}} - QQ 群卡片</title>
+  <style>
+    :root {
+      --ink: #102033;
+      --muted: #63738a;
+      --line: rgba(16, 32, 51, 0.1);
+      --card: rgba(255, 255, 255, 0.88);
+      --accent: #0c7ff2;
+      --accent-2: #15c39a;
+      --shadow: 0 28px 80px rgba(11, 31, 55, 0.24);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      align-items: center;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(21, 195, 154, 0.35), transparent 30%),
+        radial-gradient(circle at 86% 12%, rgba(12, 127, 242, 0.33), transparent 32%),
+        linear-gradient(135deg, #e7f2ff 0%, #f6faf7 48%, #e9f5ef 100%);
+      color: var(--ink);
+      display: flex;
+      font-family: "HarmonyOS Sans SC", "MiSans", "Noto Sans CJK SC", sans-serif;
+      justify-content: center;
+      margin: 0;
+      min-height: 100vh;
+      padding: 48px;
+    }
+
+    .card {
+      align-items: center;
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 42px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 34px;
+      grid-template-columns: 190px 1fr;
+      min-height: 300px;
+      overflow: hidden;
+      padding: 44px 52px;
+      position: relative;
+      width: 900px;
+    }
+
+    .card::before {
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      border-radius: 999px;
+      content: "";
+      height: 220px;
+      opacity: 0.16;
+      position: absolute;
+      right: -76px;
+      top: -82px;
+      transform: rotate(-18deg);
+      width: 260px;
+    }
+
+    .avatar-shell {
+      align-items: center;
+      background: linear-gradient(145deg, #ffffff, #d7eaff);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 44px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 18px 42px rgba(12, 127, 242, 0.18);
+      display: flex;
+      height: 190px;
+      justify-content: center;
+      overflow: hidden;
+      width: 190px;
+      z-index: 1;
+    }
+
+    .avatar {
+      height: 168px;
+      object-fit: cover;
+      width: 168px;
+    }
+
+    .content {
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .name {
+      color: var(--ink);
+      font-size: 58px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1.04;
+      margin: 0 0 24px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .pill {
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 24px;
+      font-weight: 750;
+      gap: 8px;
+      line-height: 1;
+      padding: 14px 18px;
+    }
+
+    .pill strong {
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 22px;
+      font-weight: 600;
+      line-height: 1.42;
+      margin: 0;
+      max-width: 590px;
+    }
+
+    .footer {
+      align-items: center;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      display: flex;
+      font-size: 18px;
+      font-weight: 650;
+      justify-content: space-between;
+      margin-top: 28px;
+      padding-top: 20px;
+    }
+
+    .join {
+      color: var(--accent);
+      font-weight: 850;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="avatar-shell">
+      <img class="avatar" src="{{avatar_url}}" alt="{{group_name}}">
+    </div>
+
+    <section class="content">
+      <div class="eyebrow">QQ Group</div>
+      <h1 class="name">{{group_name}}</h1>
+
+      <div class="meta">
+        <div class="pill">群号 <strong>{{group_code}}</strong></div>
+        <div class="pill">成员 <strong>{{member_count_text}}</strong></div>
+        <div class="pill">头像预览 <strong>{{member_avatar_count}}</strong></div>
+      </div>
+
+      <p class="subtitle">{{invite_subtitle}}</p>
+
+      <div class="footer">
+        <span>更新于 {{fetched_at}}</span>
+        <span class="join">点击加入群聊</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

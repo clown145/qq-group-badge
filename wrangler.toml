@@ -1,0 +1,7 @@
+name = "qq-group-badge"
+main = "src/index.ts"
+compatibility_date = "2026-04-10"
+
+[vars]
+CACHE_VERSION = "v1"
+RENDER_READY_TTL_SECONDS = "172800"
