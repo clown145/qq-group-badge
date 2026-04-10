@@ -152,7 +152,7 @@ async function handleBadge(url: URL): Promise<Response> {
   const group = await fetchGroupInfo(inviteUrl);
   const options = parseBadgeOptions(url);
   const avatarDataUrl =
-    options.includeAvatar && group.avatarUrl ? await fetchAvatarDataUrl(group.avatarUrl) : null;
+    options.includeAvatar && group.avatarUrl ? await fetchImageDataUrl(group.avatarUrl) : null;
   const svg = renderBadgeSvg(group, options, avatarDataUrl);
   const etag = `"${await sha256Hex(JSON.stringify({ group, options, hasAvatar: Boolean(avatarDataUrl) }))}"`;
 
@@ -171,11 +171,23 @@ async function handleSvgTemplateBadge(url: URL): Promise<Response> {
   const group = await fetchGroupInfo(inviteUrl);
   const source = await fetchTemplateSource(templateUrl);
   const includeAvatar = url.searchParams.get("avatar") !== "0";
+  const includeBackground = url.searchParams.get("background") !== "0";
   const needsAvatarDataUrl = templateUsesVariable(source.templateHtml, "avatar_data_url");
+  const needsBackgroundDataUrl = templateUsesVariable(
+    source.templateHtml,
+    "group_background_data_url"
+  );
   const avatarDataUrl =
-    includeAvatar && needsAvatarDataUrl && group.avatarUrl ? await fetchAvatarDataUrl(group.avatarUrl) : "";
+    includeAvatar && needsAvatarDataUrl && group.avatarUrl
+      ? await fetchImageDataUrl(group.avatarUrl)
+      : "";
+  const backgroundDataUrl =
+    includeBackground && needsBackgroundDataUrl && group.backgroundUrl
+      ? await fetchImageDataUrl(group.backgroundUrl, 1_500_000)
+      : "";
   const template = await buildCompiledTemplate(source.templateUrl, source.templateHtml, group, {
-    avatar_data_url: avatarDataUrl ?? ""
+    avatar_data_url: avatarDataUrl ?? "",
+    group_background_data_url: backgroundDataUrl ?? ""
   });
   const svg = normalizeSvgTemplateOutput(template.compiledHtml);
 
@@ -1331,8 +1343,8 @@ function renderImageStatusPlaceholder(options: {
   });
 }
 
-async function fetchAvatarDataUrl(avatarUrl: string): Promise<string | null> {
-  const response = await fetch(avatarUrl, {
+async function fetchImageDataUrl(imageUrl: string, maxBytes = 512_000): Promise<string | null> {
+  const response = await fetch(imageUrl, {
     headers: {
       accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
     }
@@ -1348,7 +1360,7 @@ async function fetchAvatarDataUrl(avatarUrl: string): Promise<string | null> {
   }
 
   const buffer = await response.arrayBuffer();
-  if (buffer.byteLength === 0 || buffer.byteLength > 512_000) {
+  if (buffer.byteLength === 0 || buffer.byteLength > maxBytes) {
     return null;
   }
 

@@ -1,4 +1,4 @@
-import type { GroupInfo } from "./types.js";
+import type { GroupAssetInfo, GroupInfo, MemberDistributionInfo } from "./types.js";
 import {
   coalesceNumber,
   coalesceString,
@@ -19,28 +19,65 @@ interface PartialGroupInfo {
   groupName: string | null;
   groupCode: string | null;
   memberCount: number | null;
+  groupDescription: string | null;
+  groupLevel: number | null;
+  groupTags: string[];
   avatarUrl: string | null;
+  backgroundUrls: string[];
   memberAvatarUrls: string[];
+  memberDistribution: MemberDistributionInfo[];
+  assetInfos: GroupAssetInfo[];
+  relationCount: number | null;
   inviteTitle: string | null;
   inviteSubtitle: string | null;
   createdAt: number | null;
 }
 
+interface EmbeddedGroupInfo {
+  avatar?: unknown;
+  name?: unknown;
+  memberAvatars?: unknown;
+  memberCnt?: unknown;
+  groupcode?: unknown;
+  description?: unknown;
+  createtime?: unknown;
+  tags?: unknown;
+}
+
+interface EmbeddedBaseInfo {
+  groupinfo?: EmbeddedGroupInfo;
+  group_level?: unknown;
+  groupLevel?: unknown;
+  msg_head_portrait?: unknown;
+  msgHeadPortrait?: unknown;
+  group_relation_num?: unknown;
+  groupRelationNum?: unknown;
+}
+
+interface EmbeddedMemberInfo {
+  member_tags?: unknown;
+  memberTags?: unknown;
+}
+
+interface EmbeddedAssetInfo {
+  resource_infos?: unknown;
+  resourceInfos?: unknown;
+}
+
+interface EmbeddedCardInfo {
+  title?: unknown;
+  subtitle?: unknown;
+}
+
 interface EmbeddedGroupPayload {
-  base_info?: {
-    groupinfo?: {
-      avatar?: unknown;
-      name?: unknown;
-      memberAvatars?: unknown;
-      memberCnt?: unknown;
-      groupcode?: unknown;
-      createtime?: unknown;
-    };
-  };
-  card_info?: {
-    title?: unknown;
-    subtitle?: unknown;
-  };
+  base_info?: EmbeddedBaseInfo;
+  baseInfo?: EmbeddedBaseInfo;
+  member_info?: EmbeddedMemberInfo;
+  memberInfo?: EmbeddedMemberInfo;
+  asset_info?: EmbeddedAssetInfo;
+  assetInfo?: EmbeddedAssetInfo;
+  card_info?: EmbeddedCardInfo;
+  cardInfo?: EmbeddedCardInfo;
 }
 
 export async function fetchGroupInfo(inviteUrlInput: string): Promise<GroupInfo> {
@@ -70,8 +107,16 @@ export async function fetchGroupInfo(inviteUrlInput: string): Promise<GroupInfo>
     groupName: parsed.groupName,
     groupCode: parsed.groupCode,
     memberCount: parsed.memberCount,
+    groupDescription: parsed.groupDescription,
+    groupLevel: parsed.groupLevel,
+    groupTags: parsed.groupTags,
     avatarUrl: parsed.avatarUrl,
+    backgroundUrl: parsed.backgroundUrls[0] ?? null,
+    backgroundUrls: parsed.backgroundUrls,
     memberAvatarUrls: parsed.memberAvatarUrls,
+    memberDistribution: parsed.memberDistribution,
+    assetInfos: parsed.assetInfos,
+    relationCount: parsed.relationCount,
     inviteTitle: parsed.inviteTitle,
     inviteSubtitle: parsed.inviteSubtitle,
     createdAt: parsed.createdAt,
@@ -103,9 +148,19 @@ function parseGroupInfo(html: string): PartialGroupInfo {
     groupName: coalesceString(fromNuxt.groupName, fromDom.groupName) ?? "",
     groupCode: coalesceString(fromNuxt.groupCode, fromDom.groupCode) ?? "",
     memberCount: coalesceNumber(fromNuxt.memberCount, fromDom.memberCount),
+    groupDescription: coalesceString(fromNuxt.groupDescription, fromDom.groupDescription),
+    groupLevel: coalesceNumber(fromNuxt.groupLevel, fromDom.groupLevel),
+    groupTags: fromNuxt.groupTags.length > 0 ? fromNuxt.groupTags : fromDom.groupTags,
     avatarUrl: coalesceString(fromNuxt.avatarUrl, fromDom.avatarUrl),
+    backgroundUrls: dedupeStrings([...fromDom.backgroundUrls, ...fromNuxt.backgroundUrls]),
     memberAvatarUrls:
       fromNuxt.memberAvatarUrls.length > 0 ? fromNuxt.memberAvatarUrls : fromDom.memberAvatarUrls,
+    memberDistribution:
+      fromNuxt.memberDistribution.length > 0
+        ? fromNuxt.memberDistribution
+        : fromDom.memberDistribution,
+    assetInfos: fromNuxt.assetInfos.length > 0 ? fromNuxt.assetInfos : fromDom.assetInfos,
+    relationCount: coalesceNumber(fromNuxt.relationCount, fromDom.relationCount),
     inviteTitle: coalesceString(fromNuxt.inviteTitle, fromDom.inviteTitle),
     inviteSubtitle: coalesceString(fromNuxt.inviteSubtitle, fromDom.inviteSubtitle),
     createdAt: coalesceNumber(fromNuxt.createdAt, fromDom.createdAt)
@@ -127,8 +182,11 @@ function parseNuxtGroupInfo(html: string): PartialGroupInfo {
       return emptyGroupInfo();
     }
 
-    const groupInfo = embeddedPayload.base_info?.groupinfo;
-    const cardInfo = embeddedPayload.card_info;
+    const baseInfo = embeddedPayload.base_info ?? embeddedPayload.baseInfo;
+    const groupInfo = baseInfo?.groupinfo;
+    const cardInfo = embeddedPayload.card_info ?? embeddedPayload.cardInfo;
+    const assetInfo = embeddedPayload.asset_info ?? embeddedPayload.assetInfo;
+    const memberInfo = embeddedPayload.member_info ?? embeddedPayload.memberInfo;
     const memberAvatars = Array.isArray(groupInfo?.memberAvatars)
       ? groupInfo.memberAvatars.filter((item): item is string => typeof item === "string")
       : [];
@@ -147,8 +205,20 @@ function parseNuxtGroupInfo(html: string): PartialGroupInfo {
       groupName: asNonEmptyString(groupInfo?.name),
       groupCode: asDigitsString(groupInfo?.groupcode),
       memberCount: asNumber(groupInfo?.memberCnt),
+      groupDescription: cleanOptionalText(groupInfo?.description),
+      groupLevel: asNumber(baseInfo?.group_level ?? baseInfo?.groupLevel),
+      groupTags: asStringArray(groupInfo?.tags),
       avatarUrl: asImageUrl(groupInfo?.avatar),
+      backgroundUrls: extractBackgroundUrlsFromPortraits(
+        asDigitsString(groupInfo?.groupcode),
+        baseInfo?.msg_head_portrait ?? baseInfo?.msgHeadPortrait
+      ),
       memberAvatarUrls: dedupeStrings(memberAvatars.map(normalizeQqImageUrl)),
+      memberDistribution: parseMemberDistribution(
+        memberInfo?.member_tags ?? memberInfo?.memberTags
+      ),
+      assetInfos: parseAssetInfos(assetInfo?.resource_infos ?? assetInfo?.resourceInfos),
+      relationCount: asNumber(baseInfo?.group_relation_num ?? baseInfo?.groupRelationNum),
       inviteTitle: asNonEmptyString(cardInfo?.title),
       inviteSubtitle,
       createdAt: asNumber(groupInfo?.createtime)
@@ -165,7 +235,7 @@ function findEmbeddedPayload(value: unknown): EmbeddedGroupPayload | null {
     if (typeof current === "string") {
       const trimmed = current.trim();
       if (
-        trimmed.includes("\"base_info\"") &&
+        (trimmed.includes("\"base_info\"") || trimmed.includes("\"baseInfo\"")) &&
         trimmed.includes("\"groupinfo\"") &&
         trimmed.includes("\"memberCnt\"")
       ) {
@@ -218,7 +288,11 @@ function findEmbeddedPayload(value: unknown): EmbeddedGroupPayload | null {
 }
 
 function looksLikeEmbeddedPayload(value: unknown): value is EmbeddedGroupPayload {
-  return isRecord(value) && isRecord(value.base_info) && isRecord(value.base_info.groupinfo);
+  return (
+    isRecord(value) &&
+    ((isRecord(value.base_info) && isRecord(value.base_info.groupinfo)) ||
+      (isRecord(value.baseInfo) && isRecord(value.baseInfo.groupinfo)))
+  );
 }
 
 function parseDomGroupInfo(html: string): PartialGroupInfo {
@@ -230,8 +304,15 @@ function parseDomGroupInfo(html: string): PartialGroupInfo {
     groupName,
     groupCode: groupCodeText ? extractDigits(groupCodeText) : null,
     memberCount: memberCountText ? toNullableNumber(extractDigits(memberCountText)) : null,
+    groupDescription: cleanOptionalText(extractClassText(html, "group-description__content")),
+    groupLevel: extractGroupLevelFromTags(extractAllClassText(html, "group-tag-item")),
+    groupTags: extractGroupTagsFromDom(html),
     avatarUrl: extractClassImageSrc(html, "avatar"),
+    backgroundUrls: extractBackgroundImageUrls(html),
     memberAvatarUrls: extractMemberAvatarUrls(html),
+    memberDistribution: [],
+    assetInfos: [],
+    relationCount: null,
     inviteTitle: extractMetaContent(html, "og:title"),
     inviteSubtitle: extractMetaContent(html, "description"),
     createdAt: null
@@ -249,6 +330,52 @@ function extractClassText(html: string, className: string): string | null {
   }
 
   return normalizeWhitespace(decodeHtmlEntities(stripTags(match[1])));
+}
+
+function extractAllClassText(html: string, className: string): string[] {
+  const pattern = new RegExp(
+    `<[^>]*class=["'][^"']*\\b${escapeRegex(className)}\\b[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`,
+    "gi"
+  );
+  const values: string[] = [];
+
+  for (const match of html.matchAll(pattern)) {
+    const value = normalizeWhitespace(decodeHtmlEntities(stripTags(match[1])));
+    if (value.length > 0) {
+      values.push(value);
+    }
+  }
+
+  return dedupeStrings(values);
+}
+
+function extractGroupTagsFromDom(html: string): string[] {
+  return extractAllClassText(html, "group-tag-item").filter((item) => !/^LV\d+$/i.test(item));
+}
+
+function extractGroupLevelFromTags(tags: string[]): number | null {
+  for (const tag of tags) {
+    const match = /^LV(\d+)$/i.exec(tag.trim());
+    if (match) {
+      return Number.parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+}
+
+function extractBackgroundImageUrls(html: string): string[] {
+  const urls: string[] = [];
+  const pattern = /background-image\s*:\s*url\((['"]?)([^'")]+)\1\)/gi;
+
+  for (const match of html.matchAll(pattern)) {
+    const url = decodeHtmlEntities(match[2]).trim();
+    if (/^https?:\/\//i.test(url) && /\/gh\//i.test(url)) {
+      urls.push(normalizeQqImageUrl(url));
+    }
+  }
+
+  return dedupeStrings(urls);
 }
 
 function extractClassImageSrc(html: string, className: string): string | null {
@@ -289,6 +416,27 @@ function asNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function cleanOptionalText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const text = normalizeWhitespace(value).replace(/(?:收起|展开)$/u, "").trim();
+  return text.length > 0 ? text : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return dedupeStrings(
+    value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => normalizeWhitespace(item))
+  );
+}
+
 function asDigitsString(value: unknown): string | null {
   if (typeof value === "string") {
     return extractDigits(value);
@@ -324,6 +472,121 @@ function asImageUrl(value: unknown): string | null {
   return normalizeQqImageUrl(value.trim());
 }
 
+function parseAssetInfos(value: unknown): GroupAssetInfo[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const assets: GroupAssetInfo[] = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const title = asNonEmptyString(item.title);
+    if (!title) {
+      continue;
+    }
+
+    assets.push({
+      id: asNumber(item.id),
+      title,
+      iconUrl: asImageUrl(item.icon),
+      count: asNumber(item.count),
+      unit: asNonEmptyString(item.unit) ?? ""
+    });
+  }
+
+  return assets;
+}
+
+function parseMemberDistribution(value: unknown): MemberDistributionInfo[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const distribution: MemberDistributionInfo[] = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const title = asNonEmptyString(item.title);
+    if (!title) {
+      continue;
+    }
+
+    distribution.push({
+      id: asNumber(item.id),
+      title,
+      icon: asNonEmptyString(item.icon) ?? "",
+      percentage: asNumber(item.percentage),
+      unit: asNonEmptyString(item.unit) ?? "",
+      subtitle: firstSubtitleItem(item.subtitle) ?? "",
+      color: asNonEmptyString(item.color)
+    });
+  }
+
+  return distribution;
+}
+
+function firstSubtitleItem(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  for (const item of value) {
+    if (isRecord(item)) {
+      const text = asNonEmptyString(item.item);
+      if (text) {
+        return text;
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractBackgroundUrlsFromPortraits(
+  groupCode: string | null,
+  value: unknown
+): string[] {
+  if (!groupCode || !Array.isArray(value)) {
+    return [];
+  }
+
+  const ids: string[] = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const defaultId = asDigitsString(item.uint32_default_id ?? item.uint32DefaultId);
+    if (defaultId) {
+      ids.push(defaultId);
+    }
+
+    const messages = item.rpt_msg_info ?? item.rptMsgInfo;
+    if (Array.isArray(messages)) {
+      for (const message of messages) {
+        if (!isRecord(message)) {
+          continue;
+        }
+
+        const id = asDigitsString(message.rpt_uint32_pic_id ?? message.rptUint32PicId);
+        if (id) {
+          ids.push(id);
+        }
+      }
+    }
+  }
+
+  return dedupeStrings(ids).map((id) => `https://p.qlogo.cn/gh/${groupCode}/${groupCode}_${id}/640`);
+}
+
 function toNullableNumber(value: string | null): number | null {
   if (!value) {
     return null;
@@ -338,8 +601,15 @@ function emptyGroupInfo(): PartialGroupInfo {
     groupName: null,
     groupCode: null,
     memberCount: null,
+    groupDescription: null,
+    groupLevel: null,
+    groupTags: [],
     avatarUrl: null,
+    backgroundUrls: [],
     memberAvatarUrls: [],
+    memberDistribution: [],
+    assetInfos: [],
+    relationCount: null,
     inviteTitle: null,
     inviteSubtitle: null,
     createdAt: null

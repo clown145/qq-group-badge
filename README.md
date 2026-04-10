@@ -75,6 +75,7 @@
 | `template` | 否 | 公开可访问的 SVG 模板 URL。不传时使用内置徽章布局。 |
 | `label` | 否 | 内置徽章的标签文本，默认 `QQ GROUP`。 |
 | `avatar=0` | 否 | 禁用头像嵌入。 |
+| `background=0` | 否 | 禁用背景图 data URL 嵌入。 |
 
 响应类型：
 
@@ -134,6 +135,14 @@ README 场景建议优先使用 `/badge.svg`。只有需要栅格图、复杂 HT
 | `{{group_code}}` | 群号。 |
 | `{{member_count_text}}` | 群人数文本。 |
 | `{{avatar_data_url}}` | base64 头像，适合 SVG 模板。 |
+| `{{group_level_badge}}` | 群等级文本，例如 `LV4`。 |
+| `{{group_tags_text}}` | 群标签文本。 |
+| `{{group_file_count_text}}` | 群文件数量。 |
+| `{{group_album_count_text}}` | 群相册数量。 |
+| `{{group_essence_count_text}}` | 群精华数量。 |
+| `{{member_distribution_text}}` | 成员分布摘要。 |
+| `{{group_background_url}}` | 群背景图 URL。 |
+| `{{group_background_data_url}}` | base64 群背景图，适合 SVG 模板。 |
 | `{{invite_url}}` | 原始邀请链接。 |
 
 完整列表见 [模板占位符](docs/template-placeholders.md)。

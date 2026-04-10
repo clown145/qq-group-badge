@@ -40,11 +40,43 @@ JSON 输出：
 | `group_id` | string | `group_code` 的别名。 |
 | `member_count` | number 或 null | 群人数。 |
 | `member_count_text` | string | 群人数文本；缺失时为空字符串。 |
+| `group_description` | string | 群简介；缺失时为空字符串。 |
+| `group_level` | number 或 null | 群等级数字；缺失时为 `null`。 |
+| `group_level_text` | string | 群等级文本，例如 `4`；缺失时为空字符串。 |
+| `group_level_badge` | string | 群等级徽标文本，例如 `LV4`；缺失时为空字符串。 |
+| `group_tags` | string[] | 群标签列表。 |
+| `group_tags_csv` | string | 用英文逗号拼接的群标签。 |
+| `group_tags_text` | string | 用 ` · ` 拼接的群标签，适合直接显示。 |
+| `group_tag_count` | number | 群标签数量。 |
 | `avatar_url` | string | 群头像原始 URL。 |
 | `avatar_data_url` | string | base64 头像。`/badge.svg` 会在 SVG 模板使用该变量时自动填充。 |
+| `group_background_url` | string | 群背景图 URL；缺失时为空字符串。 |
+| `group_background_data_url` | string | base64 群背景图。`/badge.svg` 会在 SVG 模板使用该变量时自动填充。 |
+| `group_background_urls` | string[] | 群背景图 URL 列表。 |
+| `group_background_urls_csv` | string | 用英文逗号拼接的群背景图 URL。 |
+| `group_background_count` | number | 群背景图数量。 |
 | `member_avatar_urls` | string[] | 邀请页中展示的成员头像 URL。 |
 | `member_avatar_urls_csv` | string | 用英文逗号拼接的成员头像 URL。 |
 | `member_avatar_count` | number | 当前抓取到的成员头像数量。 |
+| `member_distribution` | object[] | 成员分布列表，适合配合 `{{json:member_distribution}}` 使用。 |
+| `member_distribution_text` | string | 成员分布摘要，例如 `19% 女生 共42人 · 北京 共3人`。 |
+| `member_distribution_count` | number | 成员分布条目数量。 |
+| `member_distribution_titles` | string[] | 成员分布标题列表。 |
+| `member_distribution_titles_csv` | string | 用英文逗号拼接的成员分布标题。 |
+| `group_assets` | object[] | 群资产列表，适合配合 `{{json:group_assets}}` 使用。 |
+| `group_assets_text` | string | 群资产摘要，例如 `群文件 131项 · 群相册 172项`。 |
+| `group_asset_count` | number | 群资产条目数量。 |
+| `group_file_count` | number 或 null | 群文件数量；缺失时为 `null`。 |
+| `group_file_count_text` | string | 群文件数量文本；缺失时为空字符串。 |
+| `group_file_unit` | string | 群文件单位，通常是 `项`。 |
+| `group_album_count` | number 或 null | 群相册数量；缺失时为 `null`。 |
+| `group_album_count_text` | string | 群相册数量文本；缺失时为空字符串。 |
+| `group_album_unit` | string | 群相册单位，通常是 `项`。 |
+| `group_essence_count` | number 或 null | 群精华数量；缺失时为 `null`。 |
+| `group_essence_count_text` | string | 群精华数量文本；缺失时为空字符串。 |
+| `group_essence_unit` | string | 群精华单位，通常是 `条`。 |
+| `group_relation_count` | number 或 null | 页面提供的群关联数量；缺失时为 `null`。 |
+| `group_relation_count_text` | string | 群关联数量文本；缺失时为空字符串。 |
 | `invite_url` | string | 用户传入的原始邀请链接。 |
 | `resolved_invite_url` | string | 跟随 QQ 跳转后的最终页面 URL。 |
 | `invite_title` | string | 邀请页标题。 |
@@ -76,6 +108,30 @@ JSON 输出：
 
 README 徽章建议使用 `avatar_data_url`，不要优先使用 `avatar_url`。内联头像更稳定，不需要最终 SVG 再加载外部图片。
 
+等级和标签：
+
+```svg
+<text x="88" y="34">{{group_level_badge}} · {{group_tags_text}}</text>
+```
+
+群资产：
+
+```svg
+<text x="88" y="82">文件 {{group_file_count_text}}{{group_file_unit}} · 相册 {{group_album_count_text}}{{group_album_unit}} · 精华 {{group_essence_count_text}}{{group_essence_unit}}</text>
+```
+
+背景图：
+
+```svg
+<image href="{{group_background_data_url}}" width="430" height="96" preserveAspectRatio="xMidYMid slice" />
+```
+
+成员分布摘要：
+
+```svg
+<text x="20" y="90">{{member_distribution_text}}</text>
+```
+
 ## HTML 示例
 
 头像图片：
@@ -98,7 +154,10 @@ README 徽章建议使用 `avatar_data_url`，不要优先使用 `avatar_url`。
     name: {{json:group_name}},
     code: {{json:group_code}},
     members: {{json:member_count}},
-    avatars: {{json:member_avatar_urls}}
+    tags: {{json:group_tags}},
+    avatars: {{json:member_avatar_urls}},
+    assets: {{json:group_assets}},
+    distribution: {{json:member_distribution}}
   };
 </script>
 ```
@@ -144,3 +203,5 @@ README 徽章建议使用 `avatar_data_url`，不要优先使用 `avatar_url`。
 - SVG 模板由 `/badge.svg` 直接返回。
 - HTML 模板用于 `/badge.png`、`/badge.webp`、`/preview.html` 和外部渲染器。
 - `avatar_data_url` 主要用于 README 安全的 SVG 头像，只会在 `/badge.svg` 模板入口自动填充。
+- `group_background_data_url` 和 `avatar_data_url` 类似，只会在 SVG 模板实际使用该变量时自动填充。
+- QQ 页面不会保证每个群都有标签、等级、群资产、成员分布或背景图。缺失字段会返回空字符串、空数组或 `null`。

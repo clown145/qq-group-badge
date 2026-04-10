@@ -16,12 +16,38 @@ export interface GroupInfo {
   groupName: string;
   groupCode: string;
   memberCount: number | null;
+  groupDescription: string | null;
+  groupLevel: number | null;
+  groupTags: string[];
   avatarUrl: string | null;
+  backgroundUrl: string | null;
+  backgroundUrls: string[];
   memberAvatarUrls: string[];
+  memberDistribution: MemberDistributionInfo[];
+  assetInfos: GroupAssetInfo[];
+  relationCount: number | null;
   inviteTitle: string | null;
   inviteSubtitle: string | null;
   createdAt: number | null;
   fetchedAt: string;
+}
+
+export interface MemberDistributionInfo {
+  id: number | null;
+  title: string;
+  icon: string;
+  percentage: number | null;
+  unit: string;
+  subtitle: string;
+  color: string | null;
+}
+
+export interface GroupAssetInfo {
+  id: number | null;
+  title: string;
+  iconUrl: string | null;
+  count: number | null;
+  unit: string;
 }
 
 export interface BadgeOptions {
@@ -40,7 +66,7 @@ export interface RenderOptions {
 
 export type RenderStatus = "pending" | "ready" | "failed";
 
-export type TemplateVariableValue = string | number | boolean | null | string[];
+export type TemplateVariableValue = unknown;
 export type TemplateVariables = Record<string, TemplateVariableValue>;
 
 export interface CompiledTemplate {

@@ -97,6 +97,14 @@ https://github.com/<owner>/<repo>/blob/<branch>/<path>/template.svg
 | `{{group_code}}` | 群号。 |
 | `{{member_count_text}}` | 群人数文本。 |
 | `{{avatar_data_url}}` | base64 头像，推荐用于 SVG。 |
+| `{{group_level_badge}}` | 群等级文本，例如 `LV4`。 |
+| `{{group_tags_text}}` | 群标签文本。 |
+| `{{group_file_count_text}}` | 群文件数量。 |
+| `{{group_album_count_text}}` | 群相册数量。 |
+| `{{group_essence_count_text}}` | 群精华数量。 |
+| `{{member_distribution_text}}` | 成员分布摘要。 |
+| `{{group_background_url}}` | 群背景图 URL。 |
+| `{{group_background_data_url}}` | base64 群背景图，推荐用于 SVG。 |
 | `{{invite_url}}` | 原始邀请链接。 |
 
 完整列表见 [模板占位符](template-placeholders.md)。
@@ -117,6 +125,12 @@ Worker 只会在模板中出现 `avatar_data_url` 时抓取并内联头像。不
 
 ```text
 /badge.svg?invite=<QQ群链接>&template=<SVG模板链接>&avatar=0
+```
+
+如果模板使用了 `{{group_background_data_url}}`，但你不想内联背景图，可以加：
+
+```text
+/badge.svg?invite=<QQ群链接>&template=<SVG模板链接>&background=0
 ```
 
 ## 动画支持

@@ -10,6 +10,14 @@ export function buildTemplateVariables(
 ): TemplateVariables {
   const createdAtIso = group.createdAt ? new Date(group.createdAt * 1000).toISOString() : "";
   const fetchedAtUnix = Math.floor(Date.parse(group.fetchedAt) / 1000);
+  const groupLevelText = group.groupLevel === null ? "" : String(group.groupLevel);
+  const fileAsset = findAssetInfo(group, "群文件");
+  const albumAsset = findAssetInfo(group, "群相册");
+  const essenceAsset = findAssetInfo(group, "群精华");
+  const memberDistributionText = group.memberDistribution.map(formatMemberDistribution).join(" · ");
+  const groupAssetsText = group.assetInfos
+    .map((asset) => `${asset.title} ${asset.count === null ? "" : asset.count}${asset.unit}`.trim())
+    .join(" · ");
 
   return {
     group_name: group.groupName,
@@ -17,11 +25,43 @@ export function buildTemplateVariables(
     group_id: group.groupCode,
     member_count: group.memberCount,
     member_count_text: group.memberCount === null ? "" : String(group.memberCount),
+    group_description: group.groupDescription ?? "",
+    group_level: group.groupLevel,
+    group_level_text: groupLevelText,
+    group_level_badge: groupLevelText ? `LV${groupLevelText}` : "",
+    group_tags: group.groupTags,
+    group_tags_csv: group.groupTags.join(","),
+    group_tags_text: group.groupTags.join(" · "),
+    group_tag_count: group.groupTags.length,
     avatar_url: group.avatarUrl ?? "",
     avatar_data_url: "",
+    group_background_url: group.backgroundUrl ?? "",
+    group_background_data_url: "",
+    group_background_urls: group.backgroundUrls,
+    group_background_urls_csv: group.backgroundUrls.join(","),
+    group_background_count: group.backgroundUrls.length,
     member_avatar_urls: group.memberAvatarUrls,
     member_avatar_urls_csv: group.memberAvatarUrls.join(","),
     member_avatar_count: group.memberAvatarUrls.length,
+    member_distribution: group.memberDistribution,
+    member_distribution_text: memberDistributionText,
+    member_distribution_count: group.memberDistribution.length,
+    member_distribution_titles: group.memberDistribution.map((item) => item.title),
+    member_distribution_titles_csv: group.memberDistribution.map((item) => item.title).join(","),
+    group_assets: group.assetInfos,
+    group_assets_text: groupAssetsText,
+    group_asset_count: group.assetInfos.length,
+    group_file_count: fileAsset?.count ?? null,
+    group_file_count_text: formatNullableNumber(fileAsset?.count),
+    group_file_unit: fileAsset?.unit ?? "",
+    group_album_count: albumAsset?.count ?? null,
+    group_album_count_text: formatNullableNumber(albumAsset?.count),
+    group_album_unit: albumAsset?.unit ?? "",
+    group_essence_count: essenceAsset?.count ?? null,
+    group_essence_count_text: formatNullableNumber(essenceAsset?.count),
+    group_essence_unit: essenceAsset?.unit ?? "",
+    group_relation_count: group.relationCount,
+    group_relation_count_text: group.relationCount === null ? "" : String(group.relationCount),
     invite_url: group.sourceUrl,
     resolved_invite_url: group.resolvedUrl,
     invite_title: group.inviteTitle ?? "",
@@ -32,6 +72,18 @@ export function buildTemplateVariables(
     fetched_at_unix: Number.isFinite(fetchedAtUnix) ? fetchedAtUnix : null,
     ...extraVariables
   };
+}
+
+function findAssetInfo(group: GroupInfo, title: string): GroupInfo["assetInfos"][number] | null {
+  return group.assetInfos.find((asset) => asset.title === title) ?? null;
+}
+
+function formatMemberDistribution(item: GroupInfo["memberDistribution"][number]): string {
+  return [item.title, item.subtitle].filter((value) => value.length > 0).join(" ");
+}
+
+function formatNullableNumber(value: number | null | undefined): string {
+  return value === null || value === undefined ? "" : String(value);
 }
 
 export function compileTemplateHtml(templateHtml: string, variables: TemplateVariables): {
@@ -124,7 +176,7 @@ function variableValueToString(value: TemplateVariableValue): string {
     return "";
   }
 
-  if (Array.isArray(value)) {
+  if (Array.isArray(value) || typeof value === "object") {
     return JSON.stringify(value);
   }
 
