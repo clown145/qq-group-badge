@@ -1,6 +1,7 @@
 import { fetchGroupInfo } from "./qq.js";
 import {
   buildRendererPayload,
+  fetchTemplateSource,
   forwardRenderRequest,
   getInviteUrlOrThrow,
   prepareCompiledTemplate,
@@ -26,7 +27,7 @@ import {
   verifyCallbackAuth
 } from "./render-cache.js";
 import { renderBadgeSvg } from "./svg.js";
-import { injectPreviewBaseTag } from "./template.js";
+import { buildCompiledTemplate, injectPreviewBaseTag } from "./template.js";
 import type {
   BadgeOptions,
   Env,
@@ -44,92 +45,109 @@ export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
     const origin = `${url.protocol}//${url.host}`;
+    const isHead = request.method === "HEAD";
 
     try {
       if (request.method === "POST" && url.pathname === "/api/render/callback") {
         return await handleRenderCallback(request, env);
       }
 
-      if (request.method !== "GET") {
+      if (request.method !== "GET" && !isHead) {
         return new Response("Method Not Allowed", {
           status: 405,
           headers: {
-            allow: "GET, POST"
+            allow: "GET, HEAD, POST"
           }
         });
       }
 
       if (url.pathname === "/") {
-        return renderHome(url);
+        return finalizeMethodResponse(renderHome(url), isHead);
       }
 
       if (url.pathname === "/badge.svg" || url.pathname === "/badge") {
-        return await withCache(request, ctx, () => handleBadge(url));
+        return finalizeMethodResponse(await withCache(request, ctx, () => handleBadge(url)), isHead);
       }
 
       const renderImageFormat = getRenderImageFormatFromPath(url.pathname);
       if (renderImageFormat) {
-        return await handleRenderImage(env, url, origin, ctx, renderImageFormat);
+        return finalizeMethodResponse(
+          await handleRenderImage(env, url, origin, ctx, renderImageFormat),
+          isHead
+        );
       }
 
       if (url.pathname === "/api/group.json") {
-        return await withCache(request, ctx, () => handleGroupJson(url));
+        return finalizeMethodResponse(await withCache(request, ctx, () => handleGroupJson(url)), isHead);
       }
 
       if (url.pathname === "/api/render.json") {
-        return await handleRender(env, url, origin);
+        return finalizeMethodResponse(await handleRender(env, url, origin), isHead);
       }
 
       if (url.pathname === "/api/render-status.json") {
-        return await handleRenderStatus(env, url, origin);
+        return finalizeMethodResponse(await handleRenderStatus(env, url, origin), isHead);
       }
 
       if (url.pathname === "/api/template.json") {
-        return await withCache(request, ctx, () => handleTemplateJson(url));
+        return finalizeMethodResponse(await withCache(request, ctx, () => handleTemplateJson(url)), isHead);
       }
 
       if (url.pathname === "/preview.html") {
-        return await withCache(request, ctx, () => handlePreviewHtml(url));
+        return finalizeMethodResponse(await withCache(request, ctx, () => handlePreviewHtml(url)), isHead);
       }
 
       if (url.pathname.startsWith("/rendered/")) {
-        return await withCache(request, ctx, () => handleRenderedAsset(env, url));
+        return finalizeMethodResponse(await withCache(request, ctx, () => handleRenderedAsset(env, url)), isHead);
       }
 
-      return Response.json(
-        {
-          ok: false,
-          error: "not_found"
-        },
-        { status: 404 }
+      return finalizeMethodResponse(
+        Response.json(
+          {
+            ok: false,
+            error: "not_found"
+          },
+          { status: 404 }
+        ),
+        isHead
       );
     } catch (error) {
       if (getRenderImageFormatFromPath(url.pathname)) {
-        return renderImageStatusPlaceholder({
-          title: "Invalid badge request",
-          message: error instanceof Error ? error.message : "Unknown render error",
-          status: 200,
-          renderStatus: "invalid_request"
-        });
+        return finalizeMethodResponse(
+          renderImageStatusPlaceholder({
+            title: "Invalid badge request",
+            message: error instanceof Error ? error.message : "Unknown render error",
+            status: 200,
+            renderStatus: "invalid_request"
+          }),
+          isHead
+        );
       }
 
-      return Response.json(
-        {
-          ok: false,
-          error: error instanceof Error ? error.message : "unknown_error"
-        },
-        {
-          status: 400,
-          headers: {
-            "cache-control": "no-store"
+      return finalizeMethodResponse(
+        Response.json(
+          {
+            ok: false,
+            error: error instanceof Error ? error.message : "unknown_error"
+          },
+          {
+            status: 400,
+            headers: {
+              "cache-control": "no-store"
+            }
           }
-        }
+        ),
+        isHead
       );
     }
   }
 } satisfies ExportedHandler<Env>;
 
 async function handleBadge(url: URL): Promise<Response> {
+  if (url.searchParams.has("template")) {
+    return handleSvgTemplateBadge(url);
+  }
+
   const inviteUrl = getInviteUrlOrThrow(url);
   const group = await fetchGroupInfo(inviteUrl);
   const options = parseBadgeOptions(url);
@@ -143,6 +161,31 @@ async function handleBadge(url: URL): Promise<Response> {
       "content-type": "image/svg+xml; charset=utf-8",
       "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
       etag
+    }
+  });
+}
+
+async function handleSvgTemplateBadge(url: URL): Promise<Response> {
+  const inviteUrl = getInviteUrlOrThrow(url);
+  const templateUrl = getTemplateUrlOrThrow(url);
+  const group = await fetchGroupInfo(inviteUrl);
+  const source = await fetchTemplateSource(templateUrl);
+  const includeAvatar = url.searchParams.get("avatar") !== "0";
+  const needsAvatarDataUrl = templateUsesVariable(source.templateHtml, "avatar_data_url");
+  const avatarDataUrl =
+    includeAvatar && needsAvatarDataUrl && group.avatarUrl ? await fetchAvatarDataUrl(group.avatarUrl) : "";
+  const template = await buildCompiledTemplate(source.templateUrl, source.templateHtml, group, {
+    avatar_data_url: avatarDataUrl ?? ""
+  });
+  const svg = normalizeSvgTemplateOutput(template.compiledHtml);
+
+  return new Response(svg, {
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
+      etag: `"${template.compiledSha256}"`,
+      "x-template-sha256": template.templateSha256,
+      "x-compiled-sha256": template.compiledSha256
     }
   });
 }
@@ -613,6 +656,31 @@ function parseBadgeOptions(url: URL): BadgeOptions {
   };
 }
 
+function templateUsesVariable(templateSource: string, variableName: string): boolean {
+  const escaped = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\{\\{\\{?\\s*(?:(?:raw|json):)?${escaped}\\s*\\}?\\}\\}`).test(
+    templateSource
+  );
+}
+
+function normalizeSvgTemplateOutput(compiledSvg: string): string {
+  const svg = compiledSvg.trim();
+
+  if (!/<svg(?:\s|>)/i.test(svg)) {
+    throw new Error("SVG template must render an <svg> document");
+  }
+
+  if (/<script(?:\s|>)/i.test(svg)) {
+    throw new Error("SVG template must not include script tags");
+  }
+
+  if (/\son[a-z]+\s*=/i.test(svg)) {
+    throw new Error("SVG template must not include inline event handlers");
+  }
+
+  return svg.startsWith("<?xml") ? svg : `<?xml version="1.0" encoding="UTF-8"?>\n${svg}`;
+}
+
 function getRenderImageFormatFromPath(pathname: string): RenderImageFormat | null {
   if (pathname === "/badge.png" || pathname === "/render.png") {
     return "png";
@@ -730,7 +798,10 @@ async function withCache(
   producer: () => Promise<Response>
 ): Promise<Response> {
   const cache = caches.default;
-  const cacheKey = new Request(request.url, request);
+  const cacheKey = new Request(request.url, {
+    headers: request.headers,
+    method: "GET"
+  });
   const cached = await cache.match(cacheKey);
 
   if (cached) {
@@ -743,6 +814,18 @@ async function withCache(
   }
 
   return response;
+}
+
+function finalizeMethodResponse(response: Response, isHead: boolean): Response {
+  if (!isHead) {
+    return response;
+  }
+
+  return new Response(null, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers
+  });
 }
 
 function parseRenderKeyFromPath(pathname: string): string {

@@ -4,7 +4,10 @@ import { sha256Hex, xmlEscape } from "./utils.js";
 const PLACEHOLDER_PATTERN =
   /\{\{\{\s*([a-zA-Z0-9_]+)\s*\}\}\}|\{\{\s*(?:(raw|json):)?([a-zA-Z0-9_]+)\s*\}\}/g;
 
-export function buildTemplateVariables(group: GroupInfo): TemplateVariables {
+export function buildTemplateVariables(
+  group: GroupInfo,
+  extraVariables: Partial<TemplateVariables> = {}
+): TemplateVariables {
   const createdAtIso = group.createdAt ? new Date(group.createdAt * 1000).toISOString() : "";
   const fetchedAtUnix = Math.floor(Date.parse(group.fetchedAt) / 1000);
 
@@ -15,6 +18,7 @@ export function buildTemplateVariables(group: GroupInfo): TemplateVariables {
     member_count: group.memberCount,
     member_count_text: group.memberCount === null ? "" : String(group.memberCount),
     avatar_url: group.avatarUrl ?? "",
+    avatar_data_url: "",
     member_avatar_urls: group.memberAvatarUrls,
     member_avatar_urls_csv: group.memberAvatarUrls.join(","),
     member_avatar_count: group.memberAvatarUrls.length,
@@ -25,7 +29,8 @@ export function buildTemplateVariables(group: GroupInfo): TemplateVariables {
     created_at_unix: group.createdAt,
     created_at_iso: createdAtIso,
     fetched_at: group.fetchedAt,
-    fetched_at_unix: Number.isFinite(fetchedAtUnix) ? fetchedAtUnix : null
+    fetched_at_unix: Number.isFinite(fetchedAtUnix) ? fetchedAtUnix : null,
+    ...extraVariables
   };
 }
 
@@ -76,10 +81,11 @@ export function compileTemplateHtml(templateHtml: string, variables: TemplateVar
 export async function buildCompiledTemplate(
   templateUrl: string,
   templateHtml: string,
-  group: GroupInfo
+  group: GroupInfo,
+  extraVariables: Partial<TemplateVariables> = {}
 ): Promise<CompiledTemplate> {
   const templateSha256 = await sha256Hex(templateHtml);
-  const variables = buildTemplateVariables(group);
+  const variables = buildTemplateVariables(group, extraVariables);
   const compiled = compileTemplateHtml(templateHtml, variables);
   const compiledSha256 = await sha256Hex(compiled.compiledHtml);
 

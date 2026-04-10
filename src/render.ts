@@ -36,7 +36,7 @@ export async function fetchTemplateSource(templateUrlInput: string): Promise<{
   const templateUrl = normalizeTemplateUrl(templateUrlInput);
   const response = await fetch(templateUrl, {
     headers: {
-      accept: "text/html,text/plain;q=0.9,*/*;q=0.8"
+      accept: "image/svg+xml,text/html,text/plain;q=0.9,*/*;q=0.8"
     },
     redirect: "follow"
   });

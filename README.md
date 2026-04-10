@@ -6,6 +6,7 @@
 
 - 从 `qm.qq.com` / `qun.qq.com` 邀请页抓取群资料
 - 输出 README 可用的 `SVG` 徽章
+- 输出 README 可用的自定义 `SVG` 模板徽章
 - 输出调试用 `group.json`
 - 输出模板变量清单和编译后的 HTML 预览
 - 输出 README 可直接使用的 PNG / WebP 模板渲染图片
@@ -19,6 +20,7 @@
 查询参数：
 
 - `invite` 或 `url`：QQ群邀请链接
+- `template`：可选，SVG 模板 URL；提供后会把占位符注入模板并返回 `image/svg+xml`
 - `label`：徽章左上角标签，默认 `QQ GROUP`
 - `avatar=0`：禁用头像嵌入
 
@@ -33,6 +35,14 @@ Markdown 示例：
 ```md
 [![QQ群徽章](https://your-worker.example.com/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc)](https://qm.qq.com/q/oTzIrdDBIc)
 ```
+
+SVG 模板示例：
+
+```text
+/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-badge-template.svg
+```
+
+SVG 模板里可以用 `{{avatar_data_url}}` 内联群头像，适合 GitHub README。
 
 ### `GET /badge.webp` / `GET /badge.png`
 

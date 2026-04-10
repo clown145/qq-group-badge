@@ -4,7 +4,7 @@
 
 这个项目现在已经支持 Worker 侧模板编译。流程是：
 
-1. Worker 拉取远程 HTML 模板
+1. Worker 拉取远程 HTML / SVG 模板
 2. Worker 把群资料注入占位符
 3. Worker 对编译后的 HTML 计算 `compiled_sha256`
 4. Worker 用 `compiled_sha256 + 输出参数 + cache version` 计算 `render_key`
@@ -34,6 +34,7 @@
 | `member_count` | number \| null | `76` | 群人数，缺失时为 `null` |
 | `member_count_text` | string | `76` | 群人数的文本版 |
 | `avatar_url` | string | `https://p.qlogo.cn/...` | 群头像 |
+| `avatar_data_url` | string | `data:image/jpeg;base64,...` | 群头像的 base64 data URL；仅 SVG 模板入口会自动填充，适合 GitHub README |
 | `member_avatar_urls` | string[] | `["https://qh.qlogo.cn/...", "..."]` | 页面里预览到的成员头像列表 |
 | `member_avatar_urls_csv` | string | `https://...,...` | 头像列表 CSV 版 |
 | `member_avatar_count` | number | `3` | 当前抓到的成员头像数 |
@@ -61,6 +62,20 @@
 ```html
 <img src="{{avatar_url}}" alt="{{group_name}}">
 <a href="{{invite_url}}">加入群聊</a>
+```
+
+### SVG 头像
+
+GitHub README 对 SVG 内部的外链图片不稳定。SVG 模板建议使用内联头像：
+
+```svg
+<image href="{{avatar_data_url}}" width="50" height="50" />
+```
+
+对应入口：
+
+```text
+/badge.svg?invite=<QQ群链接>&template=<SVG模板链接>
 ```
 
 ### 内联脚本
