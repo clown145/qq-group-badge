@@ -15,6 +15,8 @@
 
 ## 接口
 
+直接访问 Worker 根路径 `/` 会打开一个简单的徽章生成器，可以输入 QQ 群邀请链接和 SVG 模板 URL，生成 README 可复制的 Markdown / HTML / 图片直链，并在线测试预览。
+
 ### `GET /badge.svg`
 
 查询参数：

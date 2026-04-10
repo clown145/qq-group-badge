@@ -611,39 +611,523 @@ async function handlePreviewHtml(url: URL): Promise<Response> {
 
 function renderHome(url: URL): Response {
   const origin = `${url.protocol}//${url.host}`;
-  const sampleInvite = "https://qm.qq.com/q/oTzIrdDBIc";
-  const sampleBadge = `${origin}/badge.svg?invite=${encodeURIComponent(sampleInvite)}`;
-  const sampleJson = `${origin}/api/group.json?invite=${encodeURIComponent(sampleInvite)}`;
-  const sampleTemplate = "https://example.com/template.html";
-  const sampleTemplateImage = `${origin}/badge.webp?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}&animated=1`;
-  const sampleTemplateJson = `${origin}/api/template.json?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}`;
-  const samplePreview = `${origin}/preview.html?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}`;
-  const sampleRender = `${origin}/api/render.json?invite=${encodeURIComponent(sampleInvite)}&template=${encodeURIComponent(sampleTemplate)}&format=png`;
-  const sampleRenderStatus = `${origin}/api/render-status.json?render_key=${"0".repeat(64)}`;
-  const sampleRenderedAsset = `${origin}/rendered/${"0".repeat(64)}`;
+  const defaultInvite =
+    coalesceString(url.searchParams.get("invite"), "https://qm.qq.com/q/oTzIrdDBIc") ?? "";
+  const defaultTemplate =
+    "https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg";
+  const initialTemplate = coalesceString(url.searchParams.get("template"), "") ?? "";
+  const originJson = jsonForInlineScript(origin);
+  const defaultTemplateJson = jsonForInlineScript(defaultTemplate);
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QQ Group Badge Generator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2ead9;
+      --ink: #17231f;
+      --muted: #66736c;
+      --line: rgba(23, 35, 31, 0.14);
+      --card: rgba(255, 251, 240, 0.86);
+      --accent: #d78a24;
+      --accent-ink: #281606;
+      --green: #1d6b56;
+      --shadow: 0 24px 80px rgba(31, 48, 42, 0.18);
+    }
 
-  return Response.json(
-    {
-      ok: true,
-      service: "qq-group-badge",
-      endpoints: {
-        badge_svg: sampleBadge,
-        badge_webp: sampleTemplateImage,
-        group_json: sampleJson,
-        template_json: sampleTemplateJson,
-        preview_html: samplePreview,
-        render_proxy: sampleRender,
-        render_status: sampleRenderStatus,
-        rendered_asset: sampleRenderedAsset
-      },
-      markdown_example: `[![QQ群徽章](${sampleBadge})](${sampleInvite})`
-    },
-    {
-      headers: {
-        "cache-control": "public, max-age=60"
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(215, 138, 36, 0.28), transparent 30rem),
+        radial-gradient(circle at 88% 12%, rgba(29, 107, 86, 0.2), transparent 28rem),
+        linear-gradient(135deg, #fbf3df 0%, #e8ead7 48%, #d4e0d6 100%);
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .intro {
+      padding: 34px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .intro::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      bottom: -90px;
+      width: 230px;
+      height: 230px;
+      border-radius: 999px;
+      background: rgba(215, 138, 36, 0.22);
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      color: var(--green);
+      font: 800 12px/1.2 "Trebuchet MS", sans-serif;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 680px;
+      font-size: clamp(36px, 7vw, 74px);
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+    }
+
+    .lead {
+      max-width: 620px;
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.75;
+    }
+
+    .form {
+      padding: 24px;
+      display: grid;
+      gap: 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font: 700 13px/1.4 "Trebuchet MS", sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    input[type="url"],
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.72);
+      font: 600 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(29, 107, 86, 0.55);
+      box-shadow: 0 0 0 4px rgba(29, 107, 86, 0.12);
+    }
+
+    .checkline {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font: 700 13px/1.4 "Trebuchet MS", sans-serif;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    button,
+    .link-button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 16px;
+      cursor: pointer;
+      color: var(--accent-ink);
+      background: var(--accent);
+      font: 900 13px/1 "Trebuchet MS", sans-serif;
+      text-decoration: none;
+      box-shadow: 0 10px 28px rgba(215, 138, 36, 0.28);
+    }
+
+    button.secondary,
+    .link-button.secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .output-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+      gap: 22px;
+      margin-top: 22px;
+    }
+
+    .section {
+      padding: 24px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      letter-spacing: -0.025em;
+    }
+
+    .result {
+      display: grid;
+      gap: 14px;
+    }
+
+    .codebox {
+      display: grid;
+      gap: 8px;
+    }
+
+    .codehead {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font: 800 12px/1.2 "Trebuchet MS", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 78px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      color: #20312c;
+      background: rgba(255, 255, 255, 0.78);
+      font: 600 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .preview-box {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed rgba(29, 107, 86, 0.32);
+      border-radius: 20px;
+      background:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.36) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255, 255, 255, 0.36) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.36) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.36) 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+
+    .preview-box img {
+      max-width: min(100%, 620px);
+      height: auto;
+      border-radius: 12px;
+    }
+
+    .status {
+      margin-top: 14px;
+      color: var(--muted);
+      font: 700 13px/1.6 "Trebuchet MS", sans-serif;
+      overflow-wrap: anywhere;
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .note {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255, 251, 240, 0.58);
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+    }
+
+    @media (max-width: 860px) {
+      main {
+        padding: 24px 0;
+      }
+
+      .hero,
+      .output-grid,
+      .notes {
+        grid-template-columns: 1fr;
+      }
+
+      .intro,
+      .form,
+      .section {
+        padding: 20px;
       }
     }
-  );
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="panel intro">
+        <p class="eyebrow">QQ Group Badge</p>
+        <h1>README 徽章生成器</h1>
+        <p class="lead">输入 QQ 群邀请链接，选择一个公开 SVG 模板，一键生成 Markdown、HTML 和图片直链。模板 URL 留空时会使用仓库里的默认模板。</p>
+      </div>
+
+      <form class="panel form" id="generator">
+        <label>
+          QQ 群邀请链接
+          <input id="invite" type="url" autocomplete="off" required value="${xmlEscape(defaultInvite ?? "")}" placeholder="https://qm.qq.com/q/xxxx">
+        </label>
+
+        <label>
+          SVG 模板 URL（可留空）
+          <input id="template" type="url" autocomplete="off" value="${xmlEscape(initialTemplate ?? "")}" placeholder="留空使用默认模板">
+        </label>
+
+        <label>
+          图片 alt 文本
+          <input id="alt" type="text" autocomplete="off" value="QQ群徽章">
+        </label>
+
+        <label class="checkline">
+          <input id="avatar" type="checkbox" checked>
+          内联群头像 base64
+        </label>
+
+        <label class="checkline">
+          <input id="cacheBust" type="checkbox">
+          生成时追加缓存刷新参数
+        </label>
+
+        <div class="actions">
+          <button type="submit">生成代码</button>
+          <button class="secondary" type="button" id="test">测试预览</button>
+          <a class="link-button secondary" href="https://github.com/clown145/qq-group-badge/blob/main/docs/svg-template-badges.md" id="docLink" rel="noreferrer">查看文档</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="output-grid">
+      <div class="panel section">
+        <h2>复制代码</h2>
+        <div class="result">
+          <div class="codebox">
+            <div class="codehead"><span>Markdown（推荐）</span><button class="secondary copy" data-copy="markdown" type="button">复制</button></div>
+            <textarea id="markdown" readonly></textarea>
+          </div>
+
+          <div class="codebox">
+            <div class="codehead"><span>HTML</span><button class="secondary copy" data-copy="htmlCode" type="button">复制</button></div>
+            <textarea id="htmlCode" readonly></textarea>
+          </div>
+
+          <div class="codebox">
+            <div class="codehead"><span>图片直链</span><button class="secondary copy" data-copy="imageUrl" type="button">复制</button></div>
+            <textarea id="imageUrl" readonly></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section">
+        <h2>测试预览</h2>
+        <div class="preview-box">
+          <img id="preview" alt="生成的 QQ 群徽章预览">
+        </div>
+        <div class="status" id="status">点击“测试预览”后会在这里显示 HTTP 状态和 Content-Type。</div>
+      </div>
+    </section>
+
+    <section class="notes">
+      <div class="note"><strong>模板要求</strong>模板必须是公开可访问的 SVG 原文链接，例如 raw.githubusercontent.com，不要用 GitHub 的 blob 页面。</div>
+      <div class="note"><strong>头像建议</strong>SVG 模板里用 {{avatar_data_url}}，Worker 会把头像转成 data URL，更适合 GitHub README。</div>
+      <div class="note"><strong>SVG 动图</strong>浏览器支持 CSS / SMIL SVG 动画，但 README 平台不一定稳定。需要稳定动图时仍建议用 WebP 渲染入口。</div>
+    </section>
+  </main>
+
+  <script>
+    const origin = ${originJson};
+    const defaultTemplate = ${defaultTemplateJson};
+    const fields = {
+      invite: document.querySelector("#invite"),
+      template: document.querySelector("#template"),
+      alt: document.querySelector("#alt"),
+      avatar: document.querySelector("#avatar"),
+      cacheBust: document.querySelector("#cacheBust"),
+      markdown: document.querySelector("#markdown"),
+      htmlCode: document.querySelector("#htmlCode"),
+      imageUrl: document.querySelector("#imageUrl"),
+      preview: document.querySelector("#preview"),
+      status: document.querySelector("#status")
+    };
+
+    function buildBadgeUrl(forPreview = false) {
+      const invite = fields.invite.value.trim();
+      const template = fields.template.value.trim() || defaultTemplate;
+
+      if (!invite) {
+        throw new Error("请先输入 QQ 群邀请链接");
+      }
+
+      const badgeUrl = new URL("/badge.svg", origin);
+      badgeUrl.searchParams.set("invite", invite);
+      badgeUrl.searchParams.set("template", template);
+
+      if (!fields.avatar.checked) {
+        badgeUrl.searchParams.set("avatar", "0");
+      }
+
+      if (fields.cacheBust.checked || forPreview) {
+        badgeUrl.searchParams.set("v", String(Date.now()));
+      }
+
+      return badgeUrl.toString();
+    }
+
+    function buildOutputs() {
+      const badgeUrl = buildBadgeUrl(false);
+      const invite = fields.invite.value.trim();
+      const alt = fields.alt.value.trim() || "QQ群徽章";
+
+      fields.imageUrl.value = badgeUrl;
+      fields.markdown.value = "[![" + alt + "](" + badgeUrl + ")](" + invite + ")";
+      fields.htmlCode.value = '<a href="' + escapeHtmlAttribute(invite) + '"><img src="' + escapeHtmlAttribute(badgeUrl) + '" alt="' + escapeHtmlAttribute(alt) + '"></a>';
+
+      return badgeUrl;
+    }
+
+    async function testPreview() {
+      try {
+        const badgeUrl = buildOutputs();
+        const previewUrl = buildBadgeUrl(true);
+        fields.status.textContent = "正在请求 HEAD...";
+        fields.preview.src = previewUrl;
+
+        const response = await fetch(previewUrl, { method: "HEAD", cache: "no-store" });
+        const contentType = response.headers.get("content-type") || "unknown";
+        fields.status.textContent = "HTTP " + response.status + " · " + contentType + " · " + badgeUrl;
+      } catch (error) {
+        fields.status.textContent = error instanceof Error ? error.message : "生成失败";
+      }
+    }
+
+    async function copyValue(id, button) {
+      const target = fields[id];
+      if (!target) {
+        return;
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(target.value);
+      } else {
+        target.focus();
+        target.select();
+        document.execCommand("copy");
+      }
+      const previous = button.textContent;
+      button.textContent = "已复制";
+      setTimeout(() => {
+        button.textContent = previous;
+      }, 1200);
+    }
+
+    function escapeHtmlAttribute(value) {
+      return value
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    document.querySelector("#generator").addEventListener("submit", (event) => {
+      event.preventDefault();
+      try {
+        buildOutputs();
+        fields.status.textContent = "已生成代码。需要看效果就点“测试预览”。";
+      } catch (error) {
+        fields.status.textContent = error instanceof Error ? error.message : "生成失败";
+      }
+    });
+
+    document.querySelector("#test").addEventListener("click", () => {
+      void testPreview();
+    });
+
+    for (const button of document.querySelectorAll(".copy")) {
+      button.addEventListener("click", () => {
+        void copyValue(button.dataset.copy, button);
+      });
+    }
+
+    for (const input of [fields.invite, fields.template, fields.alt, fields.avatar, fields.cacheBust]) {
+      input.addEventListener("input", () => {
+        try {
+          buildOutputs();
+        } catch {
+          // Keep the current output until the user finishes typing a valid invite URL.
+        }
+      });
+      input.addEventListener("change", () => {
+        try {
+          buildOutputs();
+        } catch {
+          // Same as input: avoid clearing useful generated snippets while editing.
+        }
+      });
+    }
+
+    buildOutputs();
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=300, s-maxage=300"
+    }
+  });
+}
+
+function jsonForInlineScript(value: string): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 function parseBadgeOptions(url: URL): BadgeOptions {
