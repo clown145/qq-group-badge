@@ -1,46 +1,80 @@
-# SVG 模板徽章使用说明
+# SVG 模板徽章
 
-更新时间：2026-04-10
+SVG 模板徽章适合放在 GitHub README 中。Worker 会拉取公开 SVG 模板，将 QQ 群资料注入占位符，然后直接返回 `image/svg+xml`。
 
-SVG 模板徽章适合 README。Worker 会拉取一个公开 SVG 模板，把 QQ 群资料填入占位符，然后直接返回 `image/svg+xml`。这个流程不经过 Hugging Face 渲染器，所以比 PNG / WebP 模板渲染快，也不会出现“图片还没渲染好”的等待状态。
+这个流程不依赖外部渲染器，因此比 PNG / WebP 渲染更快，也不会出现“图片还在渲染中”的等待状态。
 
-## 基本用法
+## 适用场景
 
-入口：
+推荐使用 SVG 模板徽章的场景：
+
+- 想在 README 中展示 QQ 群名、群号、人数和头像。
+- 想自定义徽章样式，但不需要复杂 HTML 渲染。
+- 希望图片请求能立即返回。
+- 希望尝试轻量 SVG 动画。
+
+如果需要复杂网页布局、截图式效果或稳定动图，建议使用 `/badge.webp` 渲染 animated WebP。
+
+## 在线生成
+
+打开生成器：
+
+```text
+https://qq-group-badge.ciallo.de5.net/
+```
+
+操作步骤：
+
+1. 输入 QQ 群邀请链接。
+2. 选择静态模板、动画模板或自定义 URL。
+3. 点击生成代码。
+4. 复制 Markdown 或 HTML。
+5. 点击测试预览，确认图片能正常返回。
+
+## 手动使用
+
+接口：
 
 ```text
 GET /badge.svg?invite=<QQ群邀请链接>&template=<SVG模板URL>
 ```
 
-README 写法：
+Markdown 示例：
 
 ```md
-[![QQ群徽章](https://qq-group-badge.ciallo.de5.net/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FknESGpUcdU&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-badge-template.svg)](https://qm.qq.com/q/knESGpUcdU)
+[![QQ 群徽章](https://qq-group-badge.ciallo.de5.net/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FknESGpUcdU&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-badge-template.svg)](https://qm.qq.com/q/knESGpUcdU)
 ```
 
-如果你刚改了模板但 GitHub 或 Cloudflare 还在用旧缓存，可以给图片 URL 加一个版本参数：
+## 内置模板
+
+| 模板 | 说明 | 原始地址 |
+| --- | --- | --- |
+| 静态 SVG | 推荐用于 README 的稳定模板。 | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg` |
+| 动画 SVG | 使用纯 SVG / CSS 动画，适合浏览器测试。 | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-animated-badge-template.svg` |
+
+## 自定义模板要求
+
+模板必须满足：
+
+- 使用公开可访问的 HTTP / HTTPS URL。
+- URL 直接返回 SVG 原文。
+- 编译后包含有效的 `<svg>` 文档。
+- 不包含 `<script>` 标签。
+- 不包含 `onload=`、`onclick=` 等内联事件属性。
+
+如果模板放在 GitHub，请使用 raw 链接：
 
 ```text
-&v=20260410
+https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>/template.svg
 ```
 
-`v` 不参与业务逻辑，只是改变 URL 用来绕过缓存。
-
-## 模板 URL
-
-`template` 必须是 Worker 能直接访问的 HTTP / HTTPS URL。常用做法是把 SVG 模板放到 GitHub 仓库，然后使用 `raw.githubusercontent.com` 链接。
-
-示例模板：
+不要使用 GitHub 页面链接：
 
 ```text
-https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg
+https://github.com/<owner>/<repo>/blob/<branch>/<path>/template.svg
 ```
-
-模板文件必须直接返回 SVG 内容，不要使用 GitHub 普通页面链接，例如不要用 `https://github.com/.../blob/...`。
 
 ## 最小模板
-
-一个最小可用 SVG 模板如下：
 
 ```svg
 <svg xmlns="http://www.w3.org/2000/svg" width="430" height="96" viewBox="0 0 430 96" role="img" aria-labelledby="title desc">
@@ -57,129 +91,82 @@ https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-ba
 </svg>
 ```
 
-项目里已经有一个完整示例：
+## 常用占位符
 
-```text
-examples/group-badge-template.svg
-```
-
-## 占位符
-
-SVG 模板和 HTML 模板使用同一套占位符语法：
-
-```text
-{{group_name}}
-{{raw:group_name}}
-{{json:member_avatar_urls}}
-{{{group_name}}}
-```
-
-SVG 里一般用默认写法 `{{group_name}}`，Worker 会做 XML 转义，避免群名里的特殊字符破坏 SVG。
-
-常用变量：
-
-| 变量 | 说明 |
+| 占位符 | 说明 |
 | --- | --- |
-| `group_name` | 群名称 |
-| `group_code` | 群号 |
-| `group_id` | 群号别名，等同于 `group_code` |
-| `member_count` | 群人数，数字或 `null` |
-| `member_count_text` | 群人数文本，缺失时为空字符串 |
-| `avatar_url` | 群头像原始 URL |
-| `avatar_data_url` | 群头像 base64 data URL，推荐在 SVG 里使用 |
-| `invite_url` | 用户传入的邀请链接 |
-| `resolved_invite_url` | 跳转后的最终邀请页 URL |
+| `{{group_name}}` | 群名称。 |
+| `{{group_code}}` | 群号。 |
+| `{{member_count_text}}` | 群人数文本。 |
+| `{{avatar_data_url}}` | base64 头像，推荐用于 SVG。 |
+| `{{invite_url}}` | 原始邀请链接。 |
 
-完整变量表见：
+完整列表见 [模板占位符](template-placeholders.md)。
 
-```text
-docs/template-placeholders.md
-```
+## 头像处理
 
-## 头像
-
-GitHub README 对 SVG 内部的外链图片支持不稳定，所以 SVG 模板里不要优先使用 `{{avatar_url}}`。推荐使用：
+SVG 模板中推荐使用 `{{avatar_data_url}}`：
 
 ```svg
 <image href="{{avatar_data_url}}" x="23" y="23" width="50" height="50" />
 ```
 
-Worker 只在 SVG 模板内容里出现 `avatar_data_url` 时才会抓头像并转成 base64，这样不用头像的模板不会额外消耗一次头像请求。
+原因是 GitHub 和图片代理可能会阻止 SVG 内部继续加载外部图片。使用 `avatar_data_url` 后，头像会以内联 base64 的形式写入最终 SVG，更适合 README。
 
-如果想禁用头像嵌入，可以加：
+Worker 只会在模板中出现 `avatar_data_url` 时抓取并内联头像。不使用头像的模板不会额外请求头像资源。
 
-```text
-avatar=0
-```
-
-示例：
+禁用头像：
 
 ```text
 /badge.svg?invite=<QQ群链接>&template=<SVG模板链接>&avatar=0
 ```
 
-## 响应和 GitHub 兼容性
+## 动画支持
 
-SVG 模板徽章返回：
+SVG 支持 CSS animation 和 SMIL animation。项目内置的动画模板使用 CSS `@keyframes`，不需要 JavaScript。
 
-```text
-content-type: image/svg+xml; charset=utf-8
-```
+需要注意：浏览器通常能播放 SVG 动画，但 GitHub README、CDN 或图片代理可能会限制、缓存或冻结动画。如果动图效果必须稳定，建议使用 `/badge.webp` 生成 animated WebP。
 
-同时支持 `HEAD`。GitHub 读取 README 图片时可以正常识别这是图片，而不是普通文本。
+## 缓存刷新
 
-README 里应使用 `/badge.svg`。不要把 `/badge.webp` 的临时 SVG fallback 当成最终 README 方案，因为扩展名是 `.webp` 时，部分平台会按 WebP 处理，不一定接受 SVG body。
-
-## 缓存
-
-SVG 模板徽章的响应头当前是：
+SVG 徽章响应头：
 
 ```text
 cache-control: public, max-age=300, s-maxage=300, stale-while-revalidate=3600
 ```
 
-这意味着群人数、模板内容或头像变化后，可能会有短时间缓存。需要立即刷新时，给 URL 加版本参数即可：
+如果更新模板后仍看到旧图，可以添加版本参数：
 
 ```text
-&v=2
+&v=20260411
 ```
 
-## 调试
+`v` 只是用于改变 URL，任意值都可以。
 
-检查群资料：
+## 排查问题
 
-```text
-/api/group.json?invite=<QQ群链接>
-```
+徽章无法显示时，按下面顺序检查：
 
-检查模板占位符和 hash：
+1. 在浏览器中直接打开生成的图片 URL。
+2. 确认响应头是 `image/svg+xml; charset=utf-8`。
+3. 确认模板 URL 是 raw SVG URL，不是 GitHub `blob` 页面。
+4. 添加 `&v=<新值>` 绕过缓存。
+5. 使用 `/api/group.json?invite=<编码后的邀请链接>` 检查群信息是否能抓取。
+6. 使用 `/api/template.json?invite=<编码后的邀请链接>&template=<编码后的模板链接>` 检查变量和未解析占位符。
 
-```text
-/api/template.json?invite=<QQ群链接>&template=<模板链接>
-```
-
-注意：`/api/template.json` 只做普通模板编译，用来检查变量是否存在；`avatar_data_url` 的实际 base64 注入只在 `/badge.svg?template=...` 入口里发生。
-
-检查最终 SVG 响应头：
-
-```bash
-curl -I "https://qq-group-badge.ciallo.de5.net/badge.svg?invite=<编码后的QQ群链接>&template=<编码后的SVG模板链接>"
-```
-
-应该看到：
+正常响应示例：
 
 ```text
 HTTP/2 200
 content-type: image/svg+xml; charset=utf-8
 ```
 
-## 模板限制
+## 安全限制
 
-为了避免把不安全内容直接作为图片返回，Worker 会做几个基础检查：
+Worker 会拒绝以下模板：
 
-- 模板编译后必须包含 `<svg>`。
-- 模板不能包含 `<script>`。
-- 模板不能包含 `onclick=`、`onload=` 这类内联事件属性。
+- 包含 `<script>` 标签。
+- 包含 `onload=`、`onclick=` 等内联事件属性。
+- 编译后不包含 `<svg>` 文档。
 
-如果模板不符合要求，Worker 会返回错误 JSON。README 中引用图片时看不到 JSON 内容，调试时建议先在浏览器或 `curl` 里打开图片 URL。
-
+这些限制用于避免把不安全内容作为可嵌入图片返回。

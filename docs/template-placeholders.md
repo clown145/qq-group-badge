@@ -1,84 +1,96 @@
-# 模板占位符说明
+# 模板占位符
 
-更新时间：2026-04-10
+模板使用 `{{placeholder}}` 语法。SVG 徽章模板和 HTML 渲染模板共用同一套占位符系统。
 
-这个项目现在已经支持 Worker 侧模板编译。流程是：
+Worker 会根据 QQ 群邀请链接获取群资料，生成模板变量，然后替换模板中的占位符。
 
-1. Worker 拉取远程 HTML / SVG 模板
-2. Worker 把群资料注入占位符
-3. Worker 对编译后的 HTML 计算 `compiled_sha256`
-4. Worker 用 `compiled_sha256 + 输出参数 + cache version` 计算 `render_key`
+## 语法
 
-后面的 HF 渲染器应该直接接收这份“已编译模板”，不要再自己重复取群信息。
+转义输出：
 
-## 占位符语法
-
-支持 3 种形式：
-
-- `{{group_name}}`
-  默认模式，HTML 转义后输出
-- `{{raw:group_name}}`
-  原样输出，不做 HTML 转义
-- `{{json:member_avatar_urls}}`
-  以 JSON 字面量输出，适合内联到 `<script>` 中
-
-另外，`{{{group_name}}}` 也等价于 `{{raw:group_name}}`。
-
-## 当前支持的变量
-
-| 变量名 | 类型 | 示例值 | 说明 |
-| --- | --- | --- | --- |
-| `group_name` | string | `五彩斑斓的Bug群` | 群名称 |
-| `group_code` | string | `903986711` | 群号 |
-| `group_id` | string | `903986711` | `group_code` 的别名 |
-| `member_count` | number \| null | `76` | 群人数，缺失时为 `null` |
-| `member_count_text` | string | `76` | 群人数的文本版 |
-| `avatar_url` | string | `https://p.qlogo.cn/...` | 群头像 |
-| `avatar_data_url` | string | `data:image/jpeg;base64,...` | 群头像的 base64 data URL；仅 SVG 模板入口会自动填充，适合 GitHub README |
-| `member_avatar_urls` | string[] | `["https://qh.qlogo.cn/...", "..."]` | 页面里预览到的成员头像列表 |
-| `member_avatar_urls_csv` | string | `https://...,...` | 头像列表 CSV 版 |
-| `member_avatar_count` | number | `3` | 当前抓到的成员头像数 |
-| `invite_url` | string | `https://qm.qq.com/q/oTzIrdDBIc` | 用户原始邀请链接 |
-| `resolved_invite_url` | string | `https://qun.qq.com/universal-share/share?...` | 跟随跳转后的最终链接 |
-| `invite_title` | string | `邀请你加入群聊` | 邀请标题 |
-| `invite_subtitle` | string | `邀请你加入QQ群聊...` | 邀请副标题 |
-| `created_at_unix` | number \| null | `1763480103` | 页面返回的创建时间戳 |
-| `created_at_iso` | string | `2025-11-18T...Z` | ISO 时间 |
-| `fetched_at` | string | `2026-04-10T05:15:59.467Z` | Worker 抓取时间 |
-| `fetched_at_unix` | number \| null | `176...` | 抓取时间戳 |
-
-## 推荐写法
-
-### 文本节点
-
-```html
-<h1>{{group_name}}</h1>
-<p>群号 {{group_code}}</p>
-<p>人数 {{member_count_text}}</p>
+```text
+{{group_name}}
 ```
 
-### 属性值
+这是最常用的写法。特殊字符会被转义，适合文本节点和大部分 SVG / HTML 属性。
+
+原样输出：
+
+```text
+{{raw:group_name}}
+{{{group_name}}}
+```
+
+只有在确认上下文安全时才使用原样输出。
+
+JSON 输出：
+
+```text
+{{json:member_avatar_urls}}
+```
+
+适合在 HTML 模板中把变量写入 JavaScript 或 JSON 数据块。
+
+## 变量列表
+
+| 变量 | 类型 | 说明 |
+| --- | --- | --- |
+| `group_name` | string | QQ 群名称。 |
+| `group_code` | string | QQ 群号。 |
+| `group_id` | string | `group_code` 的别名。 |
+| `member_count` | number 或 null | 群人数。 |
+| `member_count_text` | string | 群人数文本；缺失时为空字符串。 |
+| `avatar_url` | string | 群头像原始 URL。 |
+| `avatar_data_url` | string | base64 头像。`/badge.svg` 会在 SVG 模板使用该变量时自动填充。 |
+| `member_avatar_urls` | string[] | 邀请页中展示的成员头像 URL。 |
+| `member_avatar_urls_csv` | string | 用英文逗号拼接的成员头像 URL。 |
+| `member_avatar_count` | number | 当前抓取到的成员头像数量。 |
+| `invite_url` | string | 用户传入的原始邀请链接。 |
+| `resolved_invite_url` | string | 跟随 QQ 跳转后的最终页面 URL。 |
+| `invite_title` | string | 邀请页标题。 |
+| `invite_subtitle` | string | 邀请页副标题。 |
+| `created_at_unix` | number 或 null | 群创建时间戳；页面提供时才有值。 |
+| `created_at_iso` | string | 群创建时间的 ISO 格式；页面提供时才有值。 |
+| `fetched_at` | string | Worker 抓取邀请页的时间。 |
+| `fetched_at_unix` | number 或 null | Worker 抓取时间戳。 |
+
+## SVG 示例
+
+群名称：
+
+```svg
+<text x="88" y="58">{{group_name}}</text>
+```
+
+群号和人数：
+
+```svg
+<text x="88" y="82">群号 {{group_code}} · {{member_count_text}} members</text>
+```
+
+头像：
+
+```svg
+<image href="{{avatar_data_url}}" x="23" y="23" width="50" height="50" />
+```
+
+README 徽章建议使用 `avatar_data_url`，不要优先使用 `avatar_url`。内联头像更稳定，不需要最终 SVG 再加载外部图片。
+
+## HTML 示例
+
+头像图片：
 
 ```html
 <img src="{{avatar_url}}" alt="{{group_name}}">
-<a href="{{invite_url}}">加入群聊</a>
 ```
 
-### SVG 头像
+邀请链接：
 
-GitHub README 对 SVG 内部的外链图片不稳定。SVG 模板建议使用内联头像：
-
-```svg
-<image href="{{avatar_data_url}}" width="50" height="50" />
+```html
+<a href="{{invite_url}}">加入 {{group_name}}</a>
 ```
 
-对应入口：
-
-```text
-/badge.svg?invite=<QQ群链接>&template=<SVG模板链接>
-```
-
-### 内联脚本
+内联数据：
 
 ```html
 <script>
@@ -91,25 +103,33 @@ GitHub README 对 SVG 内部的外链图片不稳定。SVG 模板建议使用内
 </script>
 ```
 
-## 变量缺失时的行为
+## 未解析变量
 
-如果模板里用了不存在的变量名：
+如果模板使用了不存在的变量，Worker 不会删除它，而是保留原始占位符。
 
-- Worker 不会把它删掉
-- 原始占位符会保留在编译后的 HTML 中
-- 同时在 `/api/template.json` 和 `/api/render.json` 中出现在 `unresolved_variables`
-
-这样方便你排模板错误。
-
-## 调试入口
-
-### 查看变量和 hash
+示例：
 
 ```text
-/api/template.json?invite=<QQ群链接>&template=<模板链接>
+{{unknown_variable}}
 ```
 
-返回内容里有：
+未解析变量会出现在 `/api/template.json` 的 `unresolved_variables` 字段中，便于排查模板拼写错误。
+
+## 调试接口
+
+查看群资料：
+
+```text
+/api/group.json?invite=<编码后的邀请链接>
+```
+
+查看模板编译结果：
+
+```text
+/api/template.json?invite=<编码后的邀请链接>&template=<编码后的模板链接>
+```
+
+返回内容包含：
 
 - `template_sha256`
 - `compiled_sha256`
@@ -117,37 +137,10 @@ GitHub README 对 SVG 内部的外链图片不稳定。SVG 模板建议使用内
 - `unresolved_variables`
 - `variables`
 
-### 查看编译后的 HTML
+建议在把复杂模板放进 README 前，先用这个接口检查一次。
 
-```text
-/preview.html?invite=<QQ群链接>&template=<模板链接>
-```
+## 注意事项
 
-这个接口会自动插入 `<base href="模板URL">`，这样模板里的相对资源在预览时还能正常加载。
-
-## `render_key` 的当前规则
-
-Worker 现在按下面这组信息生成 `render_key`：
-
-```json
-{
-  "cacheVersion": "v1",
-  "compiledSha256": "<编译后 HTML 的 sha256>",
-  "options": {
-    "format": "png",
-    "animated": false,
-    "width": 1200,
-    "height": 630,
-    "fps": 12,
-    "durationMs": 2400
-  }
-}
-```
-
-也就是说，只要这些东西不变：
-
-- 模板内容不变
-- 注入后的群数据不变
-- 渲染参数不变
-
-那后续外部渲染器就应该直接复用缓存结果。
+- SVG 模板由 `/badge.svg` 直接返回。
+- HTML 模板用于 `/badge.png`、`/badge.webp`、`/preview.html` 和外部渲染器。
+- `avatar_data_url` 主要用于 README 安全的 SVG 头像，只会在 `/badge.svg` 模板入口自动填充。

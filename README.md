@@ -1,218 +1,221 @@
-# qq-group-badge
+# QQ Group Badge
 
-一个运行在 Cloudflare Worker 上的 QQ 群徽章服务。
+为 QQ 群生成可嵌入 README 的徽章图片。服务会抓取公开 QQ 群邀请页，提取群名称、群号、人数和头像，并返回 SVG / WebP / PNG 图片。
 
-当前已经包含：
+在线生成器：
 
-- 从 `qm.qq.com` / `qun.qq.com` 邀请页抓取群资料
-- 输出 README 可用的 `SVG` 徽章
-- 输出 README 可用的自定义 `SVG` 模板徽章
-- 输出调试用 `group.json`
-- 输出模板变量清单和编译后的 HTML 预览
-- 输出 README 可直接使用的 PNG / WebP 模板渲染图片
-- 输出 PNG / WebP 渲染的缓存状态入口、产物入口和回调入口
-- 预留与 Hugging Face 渲染服务对接的请求协议
+```text
+https://qq-group-badge.ciallo.de5.net/
+```
 
-## 接口
+## 功能特性
 
-直接访问 Worker 根路径 `/` 会打开一个简单的徽章生成器，可以输入 QQ 群邀请链接和 SVG 模板 URL，生成 README 可复制的 Markdown / HTML / 图片直链，并在线测试预览。
+- 支持从 `qm.qq.com` / `qun.qq.com` 邀请页获取群资料。
+- 支持直接返回 README 可用的 SVG 徽章。
+- 支持自定义 SVG 模板和占位符。
+- 内置静态 SVG 模板和动画 SVG 模板。
+- 提供网页生成器，可直接生成 Markdown、HTML 和图片直链。
+- 支持通过外部渲染器把 HTML 模板渲染成 PNG / WebP。
+- 支持使用 Cloudflare KV 和 R2 缓存渲染产物。
+
+## 快速使用
+
+推荐直接打开生成器：
+
+```text
+https://qq-group-badge.ciallo.de5.net/
+```
+
+使用步骤：
+
+1. 输入 QQ 群邀请链接。
+2. 选择静态模板、动画模板或自定义模板。
+3. 点击生成代码。
+4. 复制 Markdown 或 HTML 到 README。
+5. 点击测试预览，确认徽章能正常加载。
+
+也可以手动写 Markdown：
+
+```md
+[![QQ 群徽章](https://qq-group-badge.ciallo.de5.net/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FknESGpUcdU)](https://qm.qq.com/q/knESGpUcdU)
+```
+
+## SVG 模板徽章
+
+如果徽章用于 README，优先使用 `/badge.svg`。它由 Worker 直接生成，不需要等待外部渲染器，响应速度更稳定。
+
+静态模板示例：
+
+```md
+[![QQ 群徽章](https://qq-group-badge.ciallo.de5.net/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FknESGpUcdU&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-badge-template.svg)](https://qm.qq.com/q/knESGpUcdU)
+```
+
+动画模板示例：
+
+```md
+[![QQ 群徽章](https://qq-group-badge.ciallo.de5.net/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FknESGpUcdU&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-animated-badge-template.svg)](https://qm.qq.com/q/knESGpUcdU)
+```
+
+内置模板地址：
+
+| 模板 | 地址 |
+| --- | --- |
+| 静态 SVG | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-badge-template.svg` |
+| 动画 SVG | `https://raw.githubusercontent.com/clown145/qq-group-badge/main/examples/group-animated-badge-template.svg` |
+
+模板编写说明见 [SVG 模板徽章](docs/svg-template-badges.md)。
+
+## 接口说明
 
 ### `GET /badge.svg`
 
-查询参数：
+返回 SVG 徽章。
 
-- `invite` 或 `url`：QQ群邀请链接
-- `template`：可选，SVG 模板 URL；提供后会把占位符注入模板并返回 `image/svg+xml`
-- `label`：徽章左上角标签，默认 `QQ GROUP`
-- `avatar=0`：禁用头像嵌入
+参数：
 
-示例：
+| 参数 | 必填 | 说明 |
+| --- | --- | --- |
+| `invite` 或 `url` | 是 | QQ 群邀请链接。 |
+| `template` | 否 | 公开可访问的 SVG 模板 URL。不传时使用内置徽章布局。 |
+| `label` | 否 | 内置徽章的标签文本，默认 `QQ GROUP`。 |
+| `avatar=0` | 否 | 禁用头像嵌入。 |
 
-```text
-/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc
-```
-
-Markdown 示例：
-
-```md
-[![QQ群徽章](https://your-worker.example.com/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc)](https://qm.qq.com/q/oTzIrdDBIc)
-```
-
-SVG 模板示例：
+响应类型：
 
 ```text
-/badge.svg?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-badge-template.svg
+content-type: image/svg+xml; charset=utf-8
 ```
 
-SVG 模板里可以用 `{{avatar_data_url}}` 内联群头像，适合 GitHub README。
-
-详细用法见 [`docs/svg-template-badges.md`](docs/svg-template-badges.md)。
-
-### `GET /badge.webp` / `GET /badge.png`
-
-使用 HTML 模板渲染 README 可直接引用的图片。
-
-查询参数：
-
-- `invite`：QQ群邀请链接
-- `template`：HTML 模板 URL
-- `animated=1`：仅 `badge.webp` 有效，返回 animated WebP
-- `width`
-- `height`
-- `fps`
-- `duration_ms`
-
-示例：
-
-```text
-/badge.webp?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc&template=https%3A%2F%2Fraw.githubusercontent.com%2Fclown145%2Fqq-group-badge%2Fmain%2Fexamples%2Fgroup-card-template.html&animated=1&width=1000&height=500
-```
-
-`/render.webp` 和 `/render.png` 是同一功能的别名。
-
-缓存策略：
-
-- 当前 `render_key` 已完成时，直接返回 R2 里的 PNG / WebP。
-- 当前内容变化且新图还在渲染时，优先返回上一次成功图片，并在后台触发新图。
-- 完全没有可用缓存时，返回 `rendering` SVG 占位图，并在后台触发渲染。
+接口支持 `HEAD`，方便 GitHub 等平台探测图片响应。
 
 ### `GET /api/group.json`
 
-返回标准化后的群资料 JSON。
-
-示例：
+返回标准化后的群资料。
 
 ```text
-/api/group.json?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc
+/api/group.json?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FknESGpUcdU
 ```
-
-### `GET /api/render.json`
-
-这是 PNG / WebP 渲染的 JSON 调试入口。README 直接引用图片时优先使用 `/badge.webp` 或 `/badge.png`。
-
-查询参数：
-
-- `invite`：QQ群邀请链接
-- `template`：HTML 模板 URL
-- `format`：`png` / `webp`
-- `animated`：仅 `format=webp` 时有效，`1` 表示 animated WebP
-- `width`
-- `height`
-- `fps`
-- `duration_ms`
-
-当前如果没有配置 `RENDERER_BASE_URL`，会返回 `501`，但会给出 Worker 侧已经整理好的渲染请求结构和 `render_key`。
-
-如果已经配置：
-
-- `RENDER_STATE`
-- `RENDER_BUCKET`
-- `RENDERER_BASE_URL`
-
-那这个接口会真正执行：
-
-- 计算 `render_key`
-- 查缓存状态
-- 未命中时写入 `pending`
-- 调用外部渲染器
-
-### `GET /api/render-status.json`
-
-根据 `render_key` 查询当前渲染状态。
-
-示例：
-
-```text
-/api/render-status.json?render_key=<64位hex>
-```
-
-### `GET /rendered/:render_key`
-
-返回最终渲染产物。
-
-示例：
-
-```text
-/rendered/<64位hex>
-```
-
-### `POST /api/render/callback`
-
-给外部渲染器回调使用。
-
-支持：
-
-- 二进制图片回调
-- JSON base64 成功回调
-- JSON 失败回调
 
 ### `GET /api/template.json`
 
-返回模板编译结果的元信息，包括：
-
-- `template_sha256`
-- `compiled_sha256`
-- `used_variables`
-- `unresolved_variables`
-- `variables`
-
-示例：
+拉取模板、注入占位符，并返回模板调试信息。
 
 ```text
-/api/template.json?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc&template=https%3A%2F%2Fexample.com%2Ftemplate.html
+/api/template.json?invite=<编码后的邀请链接>&template=<编码后的模板链接>
 ```
 
-### `GET /preview.html`
+当模板没有按预期渲染时，优先用这个接口检查变量名和未解析占位符。
 
-返回注入占位符后的 HTML，适合先调模板再接渲染器。
+### `GET /badge.webp` 和 `GET /badge.png`
 
-示例：
+通过外部渲染器把 HTML 模板渲染成图片。
+
+参数：
+
+| 参数 | 必填 | 说明 |
+| --- | --- | --- |
+| `invite` | 是 | QQ 群邀请链接。 |
+| `template` | 是 | 公开可访问的 HTML 模板 URL。 |
+| `animated=1` | 否 | 仅 `/badge.webp` 支持，返回 animated WebP。 |
+| `width` | 否 | 渲染视口宽度。 |
+| `height` | 否 | 渲染视口高度。 |
+| `fps` | 否 | animated WebP 帧率。 |
+| `duration_ms` | 否 | animated WebP 时长。 |
+
+缓存行为：
+
+- 产物已渲染完成时，直接返回 R2 中的 PNG / WebP。
+- 新版本正在渲染且存在旧产物时，先返回旧产物，并在后台刷新。
+- 完全没有可用产物时，返回临时 SVG 占位图，并触发后台渲染。
+
+README 场景建议优先使用 `/badge.svg`。只有需要栅格图、复杂 HTML 布局或稳定动图时，再使用 WebP / PNG。
+
+## 常用占位符
+
+| 占位符 | 说明 |
+| --- | --- |
+| `{{group_name}}` | 群名称。 |
+| `{{group_code}}` | 群号。 |
+| `{{member_count_text}}` | 群人数文本。 |
+| `{{avatar_data_url}}` | base64 头像，适合 SVG 模板。 |
+| `{{invite_url}}` | 原始邀请链接。 |
+
+完整列表见 [模板占位符](docs/template-placeholders.md)。
+
+## 缓存与刷新
+
+SVG 徽章默认使用短缓存：
 
 ```text
-/preview.html?invite=https%3A%2F%2Fqm.qq.com%2Fq%2FoTzIrdDBIc&template=https%3A%2F%2Fexample.com%2Ftemplate.html
+cache-control: public, max-age=300, s-maxage=300, stale-while-revalidate=3600
 ```
 
-## 本地开发
+如果你刚修改模板，README 仍显示旧图，可以给图片 URL 添加版本参数：
+
+```text
+&v=20260411
+```
+
+`v` 参数只用于改变 URL，任意值都可以。
+
+PNG / WebP 渲染产物存储在 R2，状态存储在 KV。默认 ready 状态保留 48 小时，对应 `RENDER_READY_TTL_SECONDS=172800`。
+
+## 部署
+
+安装依赖：
 
 ```bash
 npm install
-npm run dev
 ```
 
-## 部署
+类型检查：
+
+```bash
+npm run check
+```
+
+部署 Worker：
 
 ```bash
 npm run deploy
 ```
 
-## 环境变量
+PNG / WebP 渲染缓存需要绑定：
 
-- `CACHE_VERSION`：缓存版本号，默认 `v1`
-- `RENDERER_BASE_URL`：后续外部渲染服务地址
-- `RENDERER_SHARED_TOKEN`：Worker 调用外部渲染服务的鉴权 token
-- `RENDER_CALLBACK_TOKEN`：外部渲染器回调 Worker 的鉴权 token
-- `RENDER_PENDING_TTL_SECONDS`：`pending` 状态 TTL
-- `RENDER_FAILED_TTL_SECONDS`：`failed` 状态 TTL
-- `RENDER_READY_TTL_SECONDS`：`ready` 状态 TTL，默认 `172800`，即 48 小时；设置为 `0` 表示不设置 ready TTL，非 0 值会按至少 60 秒处理
+| 绑定名 | 类型 | 用途 |
+| --- | --- | --- |
+| `RENDER_STATE` | KV namespace | 存储渲染状态。 |
+| `RENDER_BUCKET` | R2 bucket | 存储渲染后的图片。 |
 
-## Cloudflare 绑定
+环境变量：
 
-PNG / WebP 渲染缓存链路还需要：
+| 变量 | 是否必需 | 说明 |
+| --- | --- | --- |
+| `CACHE_VERSION` | 否 | 缓存版本号，默认 `v1`。 |
+| `RENDERER_BASE_URL` | PNG / WebP 必需 | 外部渲染器地址。 |
+| `RENDERER_SHARED_TOKEN` | 建议 | Worker 调用渲染器时使用的鉴权 token，建议配置为 Secret。 |
+| `RENDER_CALLBACK_TOKEN` | 建议 | 渲染器回调 Worker 时使用的鉴权 token，建议配置为 Secret。 |
+| `RENDER_PENDING_TTL_SECONDS` | 否 | pending 状态 TTL。 |
+| `RENDER_FAILED_TTL_SECONDS` | 否 | failed 状态 TTL。 |
+| `RENDER_READY_TTL_SECONDS` | 否 | ready 状态 TTL，默认部署使用 `172800` 秒。 |
 
-- `RENDER_STATE`
-  `KVNamespace`
-- `RENDER_BUCKET`
-  `R2Bucket`
+如果使用默认 48 小时缓存，建议给 R2 bucket 配置 lifecycle rule：删除 `renders/` 前缀下超过 2 天的对象。
 
-如果使用默认 48 小时缓存策略，还需要在 R2 bucket 上配置 lifecycle rule：
+## 使用限制
 
-- prefix：`renders/`
-- expire/delete after：2 days
+- 服务依赖 QQ 邀请页可公开访问，且页面结构没有发生破坏性变化。
+- GitHub 会缓存 README 图片，必要时使用 `&v=...` 刷新。
+- 动画 SVG 在浏览器中通常可用，但 README 平台可能会限制或冻结动画。稳定动图建议使用 animated WebP。
+- 模板 URL 必须直接返回原始 SVG 或 HTML 内容。
 
-## 抓取说明
+## 文档
 
-页面结构分析见 [docs/qm-share-page-scraping.md](/data/data/com.termux/files/home/qq-group-badge/docs/qm-share-page-scraping.md)。
+用户文档：
 
-模板占位符说明见 [docs/template-placeholders.md](/data/data/com.termux/files/home/qq-group-badge/docs/template-placeholders.md)。
+- [SVG 模板徽章](docs/svg-template-badges.md)
+- [模板占位符](docs/template-placeholders.md)
 
-渲染缓存协议见 [docs/render-cache-protocol.md](/data/data/com.termux/files/home/qq-group-badge/docs/render-cache-protocol.md)。
+维护者文档：
+
+- [QQ 邀请页抓取说明](docs/qm-share-page-scraping.md)
+- [渲染缓存协议](docs/render-cache-protocol.md)
