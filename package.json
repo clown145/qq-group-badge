@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:svg-cache": "rm -rf .tmp-test-dist && tsc --noEmit false --outDir .tmp-test-dist --rootDir src && node --test test/svg-cache.test.mjs && rm -rf .tmp-test-dist",
+    "test": "npm run test:svg-cache"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260405.0",

@@ -1121,7 +1121,7 @@ function renderHome(url: URL): Response {
         <div class="preview-box">
           <img id="preview" alt="生成的 QQ 群徽章预览">
         </div>
-        <div class="status" id="status">点击“测试预览”后会在这里显示 HTTP 状态和 Content-Type。</div>
+        <div class="status" id="status">点击“测试预览”后会在这里显示 HTTP 状态、Content-Type 和 x-svg-cache。</div>
       </div>
     </section>
 
@@ -1129,6 +1129,7 @@ function renderHome(url: URL): Response {
       <div class="note"><strong>模板要求</strong>模板必须是公开可访问的 SVG 原文链接，例如 raw.githubusercontent.com，不要用 GitHub 的 blob 页面。</div>
       <div class="note"><strong>图片建议</strong>SVG 模板里优先用 {{avatar_data_url}}、{{group_background_data_url}} 这类 data URL 占位符，更适合 GitHub README。</div>
       <div class="note"><strong>SVG 动图</strong>浏览器支持 CSS / SMIL SVG 动画，但 README 平台不一定稳定。需要稳定动图时仍建议用 WebP 渲染入口。</div>
+      <div class="note"><strong>缓存状态</strong><code>miss</code> 表示首次生成，<code>hit</code> 表示命中 R2 SVG 缓存，<code>stale</code> 表示先返回旧图再后台刷新。</div>
     </section>
   </main>
 
@@ -1226,7 +1227,15 @@ function renderHome(url: URL): Response {
 
         const response = await fetch(previewUrl, { method: "HEAD", cache: "no-store" });
         const contentType = response.headers.get("content-type") || "unknown";
-        fields.status.textContent = "HTTP " + response.status + " · " + contentType + " · " + badgeUrl;
+        const svgCache = response.headers.get("x-svg-cache");
+        fields.status.textContent =
+          "HTTP " +
+          response.status +
+          " · " +
+          contentType +
+          (svgCache ? " · x-svg-cache=" + svgCache : "") +
+          " · " +
+          badgeUrl;
       } catch (error) {
         fields.status.textContent = error instanceof Error ? error.message : "生成失败";
       }
