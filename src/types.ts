@@ -1,5 +1,7 @@
 export interface Env {
   CACHE_VERSION?: string;
+  SVG_CACHE_SOFT_TTL_SECONDS?: string;
+  SVG_CACHE_HARD_TTL_SECONDS?: string;
   RENDERER_BASE_URL?: string;
   RENDERER_SHARED_TOKEN?: string;
   RENDER_CALLBACK_TOKEN?: string;
@@ -145,4 +147,14 @@ export interface RenderCallbackFailure {
     code: string;
     message: string;
   };
+}
+
+export interface SvgCacheMetaRecord {
+  aliasKey: string;
+  bodyKey: string;
+  etag: string;
+  checkedAt: string;
+  staleAfter: string;
+  expiresAt: string | null;
+  headers: Record<string, string>;
 }

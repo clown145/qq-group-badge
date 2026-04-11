@@ -26,6 +26,14 @@ import {
   putRenderSuccess,
   verifyCallbackAuth
 } from "./render-cache.js";
+import {
+  buildBypassSvgResponse,
+  buildFreshSvgResponse,
+  buildSvgAliasKey,
+  getCachedSvgHit,
+  isSvgCacheConfigured,
+  putSvgCache
+} from "./svg-cache.js";
 import { renderBadgeSvg } from "./svg.js";
 import { buildCompiledTemplate, injectPreviewBaseTag } from "./template.js";
 import type {
@@ -36,11 +44,17 @@ import type {
   RendererPayload,
   RenderOptions,
   RenderStateRecord,
+  SvgCacheMetaRecord,
   TemplateVariables
 } from "./types.js";
 import { coalesceString, sha256Hex, toBase64, xmlEscape } from "./utils.js";
 
 type RenderImageFormat = "png" | "webp";
+
+interface SvgBuildResult {
+  svg: string;
+  headers?: Record<string, string>;
+}
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
@@ -67,7 +81,10 @@ export default {
       }
 
       if (url.pathname === "/badge.svg" || url.pathname === "/badge") {
-        return finalizeMethodResponse(await withCache(request, ctx, () => handleBadge(url)), isHead);
+        return finalizeMethodResponse(
+          await withCache(request, ctx, () => handleBadge(env, url, ctx)),
+          isHead
+        );
       }
 
       const renderImageFormat = getRenderImageFormatFromPath(url.pathname);
@@ -144,54 +161,139 @@ export default {
   }
 } satisfies ExportedHandler<Env>;
 
-async function handleBadge(url: URL): Promise<Response> {
+async function handleBadge(env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   if (url.searchParams.has("template")) {
-    return handleSvgTemplateBadge(url);
+    return handleSvgTemplateBadge(env, url, ctx);
   }
 
   const inviteUrl = getInviteUrlOrThrow(url);
-  const group = await fetchGroupInfo(inviteUrl);
   const options = parseBadgeOptions(url);
-  const avatarDataUrl =
-    options.includeAvatar && group.avatarUrl ? await fetchImageDataUrl(group.avatarUrl) : null;
-  const svg = renderBadgeSvg(group, options, avatarDataUrl);
-  const etag = `"${await sha256Hex(JSON.stringify({ group, options, hasAvatar: Boolean(avatarDataUrl) }))}"`;
+  return serveSvgBadgeWithCache(
+    env,
+    ctx,
+    {
+      kind: "default",
+      inviteUrl,
+      includeAvatar: options.includeAvatar,
+      label: options.label
+    },
+    async () => {
+      const group = await fetchGroupInfo(inviteUrl);
+      const avatarDataUrl =
+        options.includeAvatar && group.avatarUrl ? await fetchImageDataUrl(group.avatarUrl) : null;
 
-  return new Response(svg, {
-    headers: {
-      "content-type": "image/svg+xml; charset=utf-8",
-      "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
-      etag
+      return {
+        svg: renderBadgeSvg(group, options, avatarDataUrl)
+      };
     }
-  });
+  );
 }
 
-async function handleSvgTemplateBadge(url: URL): Promise<Response> {
+async function handleSvgTemplateBadge(
+  env: Env,
+  url: URL,
+  ctx: ExecutionContext
+): Promise<Response> {
   const inviteUrl = getInviteUrlOrThrow(url);
   const templateUrl = getTemplateUrlOrThrow(url);
-  const group = await fetchGroupInfo(inviteUrl);
-  const source = await fetchTemplateSource(templateUrl);
-  const imageDataVariables = await buildSvgImageDataVariables(source.templateHtml, group, {
-    includeAvatar: url.searchParams.get("avatar") !== "0",
-    includeBackground: url.searchParams.get("background") !== "0"
-  });
-  const template = await buildCompiledTemplate(
-    source.templateUrl,
-    source.templateHtml,
-    group,
-    imageDataVariables
-  );
-  const svg = normalizeSvgTemplateOutput(template.compiledHtml);
+  const includeAvatar = url.searchParams.get("avatar") !== "0";
+  const includeBackground = url.searchParams.get("background") !== "0";
 
-  return new Response(svg, {
-    headers: {
-      "content-type": "image/svg+xml; charset=utf-8",
-      "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
-      etag: `"${template.compiledSha256}"`,
-      "x-template-sha256": template.templateSha256,
-      "x-compiled-sha256": template.compiledSha256
+  return serveSvgBadgeWithCache(
+    env,
+    ctx,
+    {
+      kind: "template",
+      inviteUrl,
+      templateUrl,
+      includeAvatar,
+      includeBackground
+    },
+    async () => {
+      const group = await fetchGroupInfo(inviteUrl);
+      const source = await fetchTemplateSource(templateUrl);
+      const imageDataVariables = await buildSvgImageDataVariables(source.templateHtml, group, {
+        includeAvatar,
+        includeBackground
+      });
+      const template = await buildCompiledTemplate(
+        source.templateUrl,
+        source.templateHtml,
+        group,
+        imageDataVariables
+      );
+
+      return {
+        svg: normalizeSvgTemplateOutput(template.compiledHtml),
+        headers: {
+          "x-template-sha256": template.templateSha256,
+          "x-compiled-sha256": template.compiledSha256
+        }
+      };
     }
-  });
+  );
+}
+
+async function serveSvgBadgeWithCache(
+  env: Env,
+  ctx: ExecutionContext,
+  aliasPayload: Record<string, unknown>,
+  builder: () => Promise<SvgBuildResult>
+): Promise<Response> {
+  const aliasKey = await buildSvgAliasKey(env, aliasPayload);
+
+  if (!isSvgCacheConfigured(env)) {
+    return buildSvgCacheMissResponse(env, null, builder, "bypass");
+  }
+
+  const cached = await getCachedSvgHit(env, aliasKey);
+  if (cached && !cached.stale) {
+    return cached.response;
+  }
+
+  if (cached) {
+    ctx.waitUntil(refreshSvgBadgeCache(env, aliasKey, builder, cached.meta));
+    return cached.response;
+  }
+
+  return buildSvgCacheMissResponse(env, aliasKey, builder, "miss");
+}
+
+async function buildSvgCacheMissResponse(
+  env: Env,
+  aliasKey: string | null,
+  builder: () => Promise<SvgBuildResult>,
+  cacheState: string
+): Promise<Response> {
+  const built = await builder();
+  const etag = await sha256Hex(built.svg);
+  const headers = built.headers ?? {};
+
+  if (!aliasKey || !isSvgCacheConfigured(env)) {
+    return buildBypassSvgResponse(env, built.svg, etag, headers, cacheState);
+  }
+
+  try {
+    await putSvgCache(env, aliasKey, built.svg, headers);
+  } catch {
+    return buildBypassSvgResponse(env, built.svg, etag, headers, "write-bypass");
+  }
+
+  return buildFreshSvgResponse(env, built.svg, etag, headers, cacheState);
+}
+
+async function refreshSvgBadgeCache(
+  env: Env,
+  aliasKey: string,
+  builder: () => Promise<SvgBuildResult>,
+  existingMeta: SvgCacheMetaRecord
+): Promise<void> {
+  try {
+    const built = await builder();
+    await putSvgCache(env, aliasKey, built.svg, built.headers ?? {}, existingMeta);
+  } catch {
+    return;
+  }
 }
 
 async function handleGroupJson(url: URL): Promise<Response> {

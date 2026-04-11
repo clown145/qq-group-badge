@@ -174,6 +174,18 @@ cache-control: public, max-age=300, s-maxage=300, stale-while-revalidate=3600
 
 PNG / WebP 渲染产物存储在 R2，状态存储在 KV。默认 ready 状态保留 48 小时，对应 `RENDER_READY_TTL_SECONDS=172800`。
 
+如果配置了 `RENDER_BUCKET`，SVG 徽章也会额外使用 R2 做持久缓存：
+
+- 第一次访问某个 `invite + template + 参数组合` 时，仍然需要现抓现生。
+- 后续访问优先返回已缓存的旧 SVG。
+- 默认每 5 分钟进入一次后台刷新窗口。
+- 即使数据变了，也会先快速返回旧图，再后台更新。
+
+默认 SVG 缓存参数：
+
+- `SVG_CACHE_SOFT_TTL_SECONDS=300`
+- `SVG_CACHE_HARD_TTL_SECONDS=2592000`
+
 ## 部署
 
 推荐先看单独的部署文档：
@@ -209,13 +221,15 @@ PNG / WebP 渲染缓存需要绑定：
 | 绑定名 | 类型 | 用途 |
 | --- | --- | --- |
 | `RENDER_STATE` | KV namespace | 存储渲染状态。 |
-| `RENDER_BUCKET` | R2 bucket | 存储渲染后的图片。 |
+| `RENDER_BUCKET` | R2 bucket | 存储渲染后的 PNG / WebP，以及 SVG 徽章缓存对象。 |
 
 环境变量：
 
 | 变量 | 是否必需 | 说明 |
 | --- | --- | --- |
 | `CACHE_VERSION` | 否 | 缓存版本号，默认 `v1`。 |
+| `SVG_CACHE_SOFT_TTL_SECONDS` | 否 | SVG 缓存软 TTL，默认 `300` 秒。 |
+| `SVG_CACHE_HARD_TTL_SECONDS` | 否 | SVG 缓存硬 TTL，默认 `2592000` 秒。 |
 | `RENDERER_BASE_URL` | PNG / WebP 必需 | 外部渲染器地址。 |
 | `RENDERER_SHARED_TOKEN` | 建议 | Worker 调用渲染器时使用的鉴权 token，建议配置为 Secret。 |
 | `RENDER_CALLBACK_TOKEN` | 建议 | 渲染器回调 Worker 时使用的鉴权 token，建议配置为 Secret。 |
@@ -223,7 +237,13 @@ PNG / WebP 渲染缓存需要绑定：
 | `RENDER_FAILED_TTL_SECONDS` | 否 | failed 状态 TTL。 |
 | `RENDER_READY_TTL_SECONDS` | 否 | ready 状态 TTL，默认部署使用 `172800` 秒。 |
 
-如果使用默认 48 小时缓存，建议给 R2 bucket 配置 lifecycle rule：删除 `renders/` 前缀下超过 2 天的对象。具体路径和配置方式见 [Cloudflare Worker 部署指南](docs/cloudflare-worker-deployment.md)。
+如果使用默认缓存，建议给 R2 bucket 配置 lifecycle rule：
+
+- `renders/`：2 天
+- `svg-meta/`：30 天
+- `svg-body/`：30 天
+
+具体路径和配置方式见 [Cloudflare Worker 部署指南](docs/cloudflare-worker-deployment.md)。
 
 ## 使用限制
 

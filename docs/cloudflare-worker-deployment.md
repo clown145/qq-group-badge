@@ -33,6 +33,10 @@
 
 这种模式不需要 KV、R2，也不需要 Hugging Face 渲染器。
 
+注意：
+
+- 不绑定 `RENDER_BUCKET` 时，SVG 只能使用 Cloudflare 边缘缓存，不能使用 R2 持久缓存。
+
 ### 模式 B：完整模式
 
 除了 SVG，还启用：
@@ -49,6 +53,11 @@
 - 1 个外部 HTML 渲染器
 
 如果你已经按当前项目的方式部署了 Hugging Face Space 渲染器，就选这个模式。
+
+同一个 `RENDER_BUCKET` 会同时用于：
+
+- PNG / WebP 渲染结果
+- SVG 徽章的 R2 持久缓存
 
 ## 第 1 步：Fork 仓库
 
@@ -177,10 +186,12 @@ qq-group-badge-renders
 
 这一节只针对完整模式。
 
-本项目把渲染后的图片写到 R2 的这个前缀下：
+本项目会把不同类型的对象写到同一个 R2 bucket 的不同前缀下：
 
 ```text
 renders/
+svg-meta/
+svg-body/
 ```
 
 代码位置：
@@ -191,22 +202,29 @@ renders/
 
 ```ts
 renders/<render_key>
+svg-meta/<alias_key>.json
+svg-body/<compiled_sha>.svg
 ```
 
 默认配置里：
 
 ```text
 RENDER_READY_TTL_SECONDS = 172800
+SVG_CACHE_SOFT_TTL_SECONDS = 300
+SVG_CACHE_HARD_TTL_SECONDS = 2592000
 ```
 
-也就是 48 小时。
+也就是：
 
-因此推荐你在 R2 bucket 上加一条 lifecycle rule：
+- PNG / WebP ready 缓存：48 小时
+- SVG 缓存软刷新窗口：5 分钟
+- SVG 缓存硬过期：30 天
 
-- 规则名称：`delete-old-renders`
-- 作用前缀：`renders/`
-- 动作：删除 / 过期对象
-- 时间：对象创建后 2 天
+因此推荐你在 R2 bucket 上至少加这三条 lifecycle rule：
+
+- `renders/`：对象创建后 2 天删除
+- `svg-meta/`：对象创建后 30 天删除
+- `svg-body/`：对象创建后 30 天删除
 
 Dashboard 路径：
 
@@ -215,13 +233,14 @@ Dashboard 路径：
 3. 选择你的 bucket。
 4. 打开 `Settings`。
 5. 找到 `Object lifecycle rules`。
-6. 添加一条只作用于 `renders/` 前缀的删除规则。
+6. 分别为 `renders/`、`svg-meta/`、`svg-body/` 添加删除规则。
 
 建议：
 
-- 如果你保持 `RENDER_READY_TTL_SECONDS=172800`，就把 lifecycle rule 也设成 2 天。
-- 如果你把 Worker 里的 `RENDER_READY_TTL_SECONDS` 改大了，R2 lifecycle 也要同步改大。
-- 如果你把 TTL 改成了不是整天的值，R2 lifecycle 仍然建议按“不短于 TTL”的天数来配。
+- 如果你保持 `RENDER_READY_TTL_SECONDS=172800`，就把 `renders/` 规则设成 2 天。
+- 如果你保持 `SVG_CACHE_HARD_TTL_SECONDS=2592000`，就把 `svg-meta/` 和 `svg-body/` 规则设成 30 天。
+- 如果你改了 Worker 里的硬 TTL，R2 lifecycle 也要同步改。
+- `SVG_CACHE_SOFT_TTL_SECONDS` 只影响后台刷新频率，不影响 R2 lifecycle 删除时间。
 
 R2 lifecycle 删除是异步执行的，不是精确到秒触发，实际清理会有延迟。
 
@@ -278,6 +297,8 @@ Cloudflare Dashboard 路径：
 | 变量名 | 是否必需 | 推荐值 | 说明 |
 | --- | --- | --- | --- |
 | `CACHE_VERSION` | 否 | `v1` | 改这个值可以整体切换缓存版本。 |
+| `SVG_CACHE_SOFT_TTL_SECONDS` | 否 | `300` | SVG 缓存软 TTL；到期后优先返回旧图并后台刷新。 |
+| `SVG_CACHE_HARD_TTL_SECONDS` | 否 | `2592000` | SVG 缓存硬 TTL；默认 30 天。 |
 | `RENDER_READY_TTL_SECONDS` | 完整模式建议 | `172800` | ready 状态和渲染产物保留时间，默认 48 小时。 |
 | `RENDERER_BASE_URL` | 完整模式必需 | `https://your-space-name.hf.space` | 你的 Hugging Face 渲染器地址。 |
 | `RENDER_PENDING_TTL_SECONDS` | 否 | 留空 | pending 状态 TTL，默认 900 秒。 |
@@ -312,6 +333,18 @@ Cloudflare Dashboard 路径：
 ```text
 content-type: image/svg+xml; charset=utf-8
 ```
+
+如果你已经绑定了 `RENDER_BUCKET`，再多看一个响应头：
+
+```text
+x-svg-cache: miss | hit | stale
+```
+
+含义：
+
+- `miss`：这次是现抓现生后写入缓存
+- `hit`：直接命中 R2 SVG 缓存
+- `stale`：先返回旧 SVG，同时后台刷新
 
 ### 7.2 抓取是否正常
 
@@ -400,6 +433,8 @@ name = "..."
 - Dashboard 里绑定 KV
 - Dashboard 里绑定 R2
 - R2 lifecycle rule
+- `SVG_CACHE_SOFT_TTL_SECONDS`
+- `SVG_CACHE_HARD_TTL_SECONDS`
 - Hugging Face 渲染器
 - `RENDERER_SHARED_TOKEN`
 - `RENDER_CALLBACK_TOKEN`
